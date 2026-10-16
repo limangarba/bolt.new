@@ -4,7 +4,8 @@ import { atom } from 'nanostores';
 import type { Message } from 'ai';
 import { toast } from 'react-toastify';
 import { workbenchStore } from '~/lib/stores/workbench';
-import { getMessages, getNextId, getUrlId, openDatabase, setMessages } from './db';
+import { deleteOlderThan, getMessages, getNextId, getUrlId, openDatabase, setMessages } from './db';
+import { createScopedLogger } from '~/utils/logger';
 
 export interface ChatHistoryItem {
   id: string;
@@ -17,6 +18,17 @@ export interface ChatHistoryItem {
 const persistenceEnabled = !import.meta.env.VITE_DISABLE_PERSISTENCE;
 
 export const db = persistenceEnabled ? await openDatabase() : undefined;
+
+const logger = createScopedLogger('ChatHistory');
+
+// number of days chats are kept in the browser; unset or invalid means no automatic purge
+const retentionDays = Number.parseInt(import.meta.env.VITE_HISTORY_RETENTION_DAYS ?? '', 10);
+
+if (db && retentionDays > 0) {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+
+  await deleteOlderThan(db, cutoff).catch((error) => logger.error(error));
+}
 
 export const chatId = atom<string | undefined>(undefined);
 export const description = atom<string | undefined>(undefined);

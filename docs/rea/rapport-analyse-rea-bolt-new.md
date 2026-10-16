@@ -71,3 +71,14 @@ L'URL `/api/chat` est bien écrite en clair, mais comme option `api` du hook `us
 - Les liaisons CommonJS/ESM ne sont résolues qu'à l'intérieur du projet.
 - La couverture du graphe est partielle ; les faits manquants restent « inconnus » et non « absents ».
 - Les chemins dynamiques ou obscurcis peuvent rester non résolus.
+
+## 7. Suivi des corrections (16/10/2026)
+
+| Point | Correction | Fichiers |
+|---|---|---|
+| API sans contrôle d'accès | Authentification HTTP Basic obligatoire (`BOLT_ACCESS_PASSWORD`, `BOLT_ACCESS_USER`) sur les API et les pages ; refus (503) tant qu'aucun mot de passe n'est configuré, hors développement local | `app/lib/.server/security.ts`, `app/lib/.server/api-guard.ts`, `functions/[[path]].ts`, routes `api.*` |
+| Consommation abusive du crédit d'API | Limite de requêtes par adresse IP (20/min par défaut, réglable avec `BOLT_RATE_LIMIT` et `BOLT_RATE_WINDOW_SECONDS`), réponse 429 | mêmes fichiers |
+| Historique en clair dans le navigateur | Atténuation : bouton « Delete all chats », durée de conservation `VITE_HISTORY_RETENTION_DAYS`, désactivation possible avec `VITE_DISABLE_PERSISTENCE` | `app/lib/persistence/*`, `app/components/sidebar/Menu.client.tsx` |
+
+Le stockage local n'est pas chiffré : sans phrase secrète saisie par l'utilisateur, la clé de chiffrement
+resterait dans le même navigateur et n'apporterait pas de protection réelle.

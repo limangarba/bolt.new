@@ -1,4 +1,5 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
+import { guardApiRequest } from '~/lib/.server/api-guard';
 import { MAX_RESPONSE_SEGMENTS, MAX_TOKENS } from '~/lib/.server/llm/constants';
 import { CONTINUE_PROMPT } from '~/lib/.server/llm/prompts';
 import { streamText, type Messages, type StreamingOptions } from '~/lib/.server/llm/stream-text';
@@ -9,6 +10,12 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 async function chatAction({ context, request }: ActionFunctionArgs) {
+  const denied = guardApiRequest(request, context.cloudflare.env);
+
+  if (denied) {
+    return denied;
+  }
+
   const { messages } = await request.json<{ messages: Messages }>();
 
   const stream = new SwitchableStream();
