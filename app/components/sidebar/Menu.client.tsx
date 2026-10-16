@@ -2,9 +2,8 @@ import { motion, type Variants } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
-import { IconButton } from '~/components/ui/IconButton';
 import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
-import { db, deleteById, getAll, chatId, type ChatHistoryItem } from '~/lib/persistence';
+import { db, deleteAll, deleteById, getAll, chatId, type ChatHistoryItem } from '~/lib/persistence';
 import { cubicEasingFn } from '~/utils/easings';
 import { logger } from '~/utils/logger';
 import { HistoryItem } from './HistoryItem';
@@ -31,7 +30,7 @@ const menuVariants = {
   },
 } satisfies Variants;
 
-type DialogContent = { type: 'delete'; item: ChatHistoryItem } | null;
+type DialogContent = { type: 'delete'; item: ChatHistoryItem } | { type: 'deleteAll' } | null;
 
 export function Menu() {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -63,6 +62,24 @@ export function Menu() {
         })
         .catch((error) => {
           toast.error('Failed to delete conversation');
+          logger.error(error);
+        });
+    }
+  }, []);
+
+  const deleteAllItems = useCallback(() => {
+    if (db) {
+      deleteAll(db)
+        .then(() => {
+          loadEntries();
+
+          if (chatId.get() !== undefined) {
+            // hard page navigation to clear the stores
+            window.location.pathname = '/';
+          }
+        })
+        .catch((error) => {
+          toast.error('Failed to delete conversations');
           logger.error(error);
         });
     }
@@ -160,10 +177,46 @@ export function Menu() {
                   </div>
                 </>
               )}
+              {dialogContent?.type === 'deleteAll' && (
+                <>
+                  <DialogTitle>Delete All Chats?</DialogTitle>
+                  <DialogDescription asChild>
+                    <div>
+                      <p>
+                        You are about to delete <strong>all {list.length} conversations</strong> stored in this browser.
+                      </p>
+                      <p className="mt-1">This cannot be undone. Are you sure?</p>
+                    </div>
+                  </DialogDescription>
+                  <div className="px-5 pb-4 bg-bolt-elements-background-depth-2 flex gap-2 justify-end">
+                    <DialogButton type="secondary" onClick={closeDialog}>
+                      Cancel
+                    </DialogButton>
+                    <DialogButton
+                      type="danger"
+                      onClick={() => {
+                        deleteAllItems();
+                        closeDialog();
+                      }}
+                    >
+                      Delete All
+                    </DialogButton>
+                  </div>
+                </>
+              )}
             </Dialog>
           </DialogRoot>
         </div>
         <div className="flex items-center border-t border-bolt-elements-borderColor p-4">
+          {list.length > 0 && (
+            <button
+              className="flex gap-2 items-center text-bolt-elements-textSecondary hover:text-bolt-elements-item-contentDanger transition-theme"
+              onClick={() => setDialogContent({ type: 'deleteAll' })}
+            >
+              <span className="inline-block i-ph:trash" />
+              Delete all chats
+            </button>
+          )}
           <ThemeSwitch className="ml-auto" />
         </div>
       </div>

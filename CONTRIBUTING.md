@@ -70,6 +70,39 @@ VITE_LOG_LEVEL=debug
 
 **Important**: Never commit your `.env.local` file to version control. It's already included in .gitignore.
 
+### Access control and rate limiting
+
+The API routes (`/api/chat`, `/api/enhancer`) and every server-rendered page are protected with HTTP Basic auth.
+Outside of `pnpm run dev`, the app refuses requests (HTTP 503) until a password is configured:
+
+```
+BOLT_ACCESS_PASSWORD=choose-a-strong-password
+# optional, any username is accepted when unset
+BOLT_ACCESS_USER=admin
+```
+
+API requests are also rate limited per client IP (default: 20 requests per 60 seconds):
+
+```
+BOLT_RATE_LIMIT=20
+BOLT_RATE_WINDOW_SECONDS=60
+```
+
+The rate limiter keeps its counters in memory, so on Cloudflare it is a best-effort guard per isolate. For strict
+limits, also add a [rate limiting rule](https://developers.cloudflare.com/waf/rate-limiting-rules/) in the
+Cloudflare dashboard.
+
+When deploying, set these values as encrypted secrets, for example `npx wrangler pages secret put BOLT_ACCESS_PASSWORD`.
+
+### Chat history stored in the browser
+
+Conversations are stored unencrypted in the browser's IndexedDB (`boltHistory`). Anyone with access to the browser
+profile can read them. To limit exposure:
+
+- use **Delete all chats** at the bottom of the sidebar to purge the history;
+- set `VITE_HISTORY_RETENTION_DAYS=30` to delete conversations older than 30 days when the app loads;
+- set `VITE_DISABLE_PERSISTENCE=true` to never store conversations.
+
 ## Available Scripts
 
 - `pnpm run dev`: Starts the development server.

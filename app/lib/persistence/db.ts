@@ -158,3 +158,43 @@ async function getUrlIds(db: IDBDatabase): Promise<string[]> {
     };
   });
 }
+
+export async function deleteAll(db: IDBDatabase): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('chats', 'readwrite');
+    const store = transaction.objectStore('chats');
+    const request = store.clear();
+
+    request.onsuccess = () => resolve(undefined);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteOlderThan(db: IDBDatabase, cutoff: Date): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('chats', 'readwrite');
+    const store = transaction.objectStore('chats');
+    const request = store.openCursor();
+    let deleted = 0;
+
+    request.onsuccess = (event: Event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+
+      if (!cursor) {
+        return;
+      }
+
+      const timestamp = Date.parse((cursor.value as ChatHistoryItem).timestamp);
+
+      if (!Number.isNaN(timestamp) && timestamp < cutoff.getTime()) {
+        cursor.delete();
+        deleted++;
+      }
+
+      cursor.continue();
+    };
+
+    transaction.oncomplete = () => resolve(deleted);
+    transaction.onerror = () => reject(transaction.error);
+  });
+}

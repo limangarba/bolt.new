@@ -1,5 +1,6 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
 import { StreamingTextResponse, parseStreamPart } from 'ai';
+import { guardApiRequest } from '~/lib/.server/api-guard';
 import { streamText } from '~/lib/.server/llm/stream-text';
 import { stripIndents } from '~/utils/stripIndent';
 
@@ -11,6 +12,12 @@ export async function action(args: ActionFunctionArgs) {
 }
 
 async function enhancerAction({ context, request }: ActionFunctionArgs) {
+  const denied = guardApiRequest(request, context.cloudflare.env);
+
+  if (denied) {
+    return denied;
+  }
+
   const { message } = await request.json<{ message: string }>();
 
   try {
