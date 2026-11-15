@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
-  KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View,
+  KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { colors, habitColors, habitEmojis } from '../theme';
-import type { NewHabit } from '../types';
+import type { NewHabit, Reminder } from '../types';
+import { ReminderPicker } from './ReminderPicker';
 
 type Props = {
   visible: boolean;
@@ -15,6 +16,7 @@ export function AddHabitModal({ visible, onClose, onSave }: Props) {
   const [name, setName] = useState('');
   const [emoji, setEmoji] = useState(habitEmojis[0]);
   const [color, setColor] = useState(habitColors[0]);
+  const [reminder, setReminder] = useState<Reminder | null>(null);
 
   const trimmed = name.trim();
 
@@ -22,11 +24,12 @@ export function AddHabitModal({ visible, onClose, onSave }: Props) {
     setName('');
     setEmoji(habitEmojis[0]);
     setColor(habitColors[0]);
+    setReminder(null);
   };
 
   const handleSave = () => {
     if (!trimmed) return;
-    onSave({ name: trimmed, emoji, color });
+    onSave({ name: trimmed, emoji, color, reminder });
     reset();
   };
 
@@ -45,6 +48,11 @@ export function AddHabitModal({ visible, onClose, onSave }: Props) {
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <Text style={styles.title}>Nouvelle habitude</Text>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
 
           <TextInput
             value={name}
@@ -88,6 +96,9 @@ export function AddHabitModal({ visible, onClose, onSave }: Props) {
             ))}
           </View>
 
+          <ReminderPicker value={reminder} onChange={setReminder} accent={color} />
+          </ScrollView>
+
           <View style={styles.actions}>
             <Pressable onPress={handleClose} style={[styles.button, styles.secondary]}>
               <Text style={styles.secondaryText}>Annuler</Text>
@@ -115,6 +126,8 @@ const styles = StyleSheet.create({
   },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border },
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
+  scroll: { maxHeight: 520 },
+  scrollContent: { gap: 12 },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: colors.text,

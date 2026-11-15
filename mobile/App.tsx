@@ -1,23 +1,51 @@
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AddHabitModal } from './src/components/AddHabitModal';
 import { HabitCard } from './src/components/HabitCard';
+import { ReminderModal } from './src/components/ReminderModal';
 import { dayKey, formatToday } from './src/dates';
+import {
+  configureNotifications, ensurePermission, remindersSignature, syncReminders,
+} from './src/notifications';
 import { loadHabits, saveHabits } from './src/storage';
 import { colors } from './src/theme';
-import type { Habit, NewHabit } from './src/types';
+import type { Habit, NewHabit, Reminder } from './src/types';
+
+configureNotifications();
 
 function haptic() {
   if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => {});
+}
+
+/**
+ * Vérifie l'autorisation avant d'activer un rappel.
+ * Renvoie le rappel à enregistrer (null si l'utilisateur a refusé).
+ */
+async function confirmReminder(reminder: Reminder | null | undefined): Promise<Reminder | null> {
+  if (!reminder) return null;
+  const permission = await ensurePermission();
+  if (permission === 'granted') return reminder;
+  if (permission === 'denied') {
+    Alert.alert(
+      'Notifications désactivées',
+      "Autorisez les notifications pour l'application dans les réglages du téléphone, puis réactivez le rappel.",
+      [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Ouvrir les réglages', onPress: () => Linking.openSettings() },
+      ],
+    );
+  }
+  return null;
 }
 
 function HabitsScreen() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Habit | null>(null);
   const skipFirstSave = useRef(true);
 
   useEffect(() => {
@@ -37,6 +65,13 @@ function HabitsScreen() {
     saveHabits(habits).catch(() => Alert.alert('Erreur', "Impossible d'enregistrer les données."));
   }, [habits, loaded]);
 
+  // Reprogramme les notifications seulement quand un rappel change (pas à chaque coche).
+  const signature = remindersSignature(habits);
+  useEffect(() => {
+    if (!loaded) return;
+    syncReminders(habits).catch(() => {});
+  }, [signature, loaded]);
+
   const today = dayKey();
   const doneToday = habits.filter((h) => h.completions.includes(today)).length;
   const progress = habits.length ? doneToday / habits.length : 0;
@@ -55,15 +90,23 @@ function HabitsScreen() {
     );
   };
 
-  const addHabit = (input: NewHabit) => {
+  const addHabit = async (input: NewHabit) => {
+    const reminder = await confirmReminder(input.reminder);
     const habit: Habit = {
       ...input,
+      reminder,
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       createdAt: new Date().toISOString(),
       completions: [],
     };
     setHabits((list) => [...list, habit]);
     setAdding(false);
+  };
+
+  const saveReminder = async (habitId: string, value: Reminder | null) => {
+    const reminder = await confirmReminder(value);
+    setHabits((list) => list.map((h) => (h.id === habitId ? { ...h, reminder } : h)));
+    setEditingReminder(null);
   };
 
   const confirmDelete = (habit: Habit) => {
@@ -114,12 +157,17 @@ function HabitsScreen() {
           ) : undefined
         }
         renderItem={({ item }) => (
-          <HabitCard habit={item} onToggle={toggle} onLongPress={confirmDelete} />
+          <HabitCard
+            habit={item}
+            onToggle={toggle}
+            onLongPress={confirmDelete}
+            onReminderPress={setEditingReminder}
+          />
         )}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListFooterComponent={
           habits.length > 0 ? (
-            <Text style={styles.hint}>Touchez un jour pour le cocher · appui long pour supprimer</Text>
+            <Text style={styles.hint}>Touchez un jour pour le cocher · 🔔 pour le rappel · appui long pour supprimer</Text>
           ) : undefined
         }
       />
@@ -134,6 +182,11 @@ function HabitsScreen() {
       </Pressable>
 
       <AddHabitModal visible={adding} onClose={() => setAdding(false)} onSave={addHabit} />
+      <ReminderModal
+        habit={editingReminder}
+        onClose={() => setEditingReminder(null)}
+        onSave={saveReminder}
+      />
     </SafeAreaView>
   );
 }

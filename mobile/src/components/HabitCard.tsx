@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { currentStreak, dayKey, lastDays, weekdayLetter } from '../dates';
+import { formatTime } from '../notifications';
 import { colors } from '../theme';
 import type { Habit } from '../types';
 
@@ -7,9 +8,10 @@ type Props = {
   habit: Habit;
   onToggle: (habitId: string, day: string) => void;
   onLongPress: (habit: Habit) => void;
+  onReminderPress: (habit: Habit) => void;
 };
 
-export function HabitCard({ habit, onToggle, onLongPress }: Props) {
+export function HabitCard({ habit, onToggle, onLongPress, onReminderPress }: Props) {
   const today = dayKey();
   const done = new Set(habit.completions);
   const doneToday = done.has(today);
@@ -32,6 +34,22 @@ export function HabitCard({ habit, onToggle, onLongPress }: Props) {
             {streak > 0 ? `🔥 ${streak} jour${streak > 1 ? 's' : ''} d'affilée` : 'Pas encore de série'}
           </Text>
         </View>
+        <Pressable
+          onPress={() => onReminderPress(habit)}
+          hitSlop={6}
+          style={[styles.bell, habit.reminder && { backgroundColor: habit.color + '1A' }]}
+          accessibilityRole="button"
+          accessibilityLabel={
+            habit.reminder
+              ? `Rappel de ${habit.name} à ${formatTime(habit.reminder)}, modifier`
+              : `Ajouter un rappel pour ${habit.name}`
+          }
+        >
+          <Text style={[styles.bellIcon, !habit.reminder && styles.bellOff]}>🔔</Text>
+          {habit.reminder && (
+            <Text style={[styles.bellTime, { color: habit.color }]}>{formatTime(habit.reminder)}</Text>
+          )}
+        </Pressable>
         <Pressable
           onPress={() => onToggle(habit.id, today)}
           hitSlop={8}
@@ -96,6 +114,13 @@ const styles = StyleSheet.create({
   info: { flex: 1, gap: 2 },
   name: { fontSize: 17, fontWeight: '600', color: colors.text },
   streak: { fontSize: 13, color: colors.muted },
+  bell: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, height: 32, borderRadius: 16,
+  },
+  bellIcon: { fontSize: 15 },
+  bellOff: { opacity: 0.3 },
+  bellTime: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
   check: {
     width: 36, height: 36, borderRadius: 18, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
