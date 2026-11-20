@@ -7,6 +7,7 @@ Application Expo (SDK 58, Expo Router, TypeScript) fonctionnant sur iPhone, Andr
 - Écran « Aujourd'hui » : cocher l'habitude du jour, barre de progression, 7 derniers jours cliquables (rattrapage)
 - Série en cours, record, taux de réussite sur 30 jours, calendrier de 8 semaines
 - Données stockées localement (AsyncStorage), thème clair/sombre automatique, retour haptique
+- Rappels par notification : heure au choix par habitude, envoyés chaque jour planifié (iOS et Android)
 
 ## Lancer
 ```bash

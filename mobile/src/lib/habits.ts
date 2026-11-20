@@ -7,6 +7,8 @@ export type Habit = {
   color: string;
   /** Jours planifiés (0 = dimanche … 6 = samedi). */
   days: number[];
+  /** Rappel quotidien (heure locale) aux jours planifiés, ou absent. */
+  reminder?: { hour: number; minute: number } | null;
   /** Jour de création (YYYY-MM-DD). */
   createdAt: string;
   /** Jours accomplis (YYYY-MM-DD). */

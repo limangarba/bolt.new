@@ -11,10 +11,11 @@ import {
 
 import { toKey } from './dates';
 import { Habit, newId } from './habits';
+import { syncReminders } from './notifications';
 
 const STORAGE_KEY = 'habits.v1';
 
-type HabitInput = Pick<Habit, 'name' | 'emoji' | 'color' | 'days'>;
+type HabitInput = Pick<Habit, 'name' | 'emoji' | 'color' | 'days' | 'reminder'>;
 
 type Store = {
   habits: Habit[];
@@ -43,6 +44,16 @@ export function HabitsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loaded) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(habits)).catch(() => {});
   }, [habits, loaded]);
+
+  // Replanifie les notifications quand les habitudes (jours, heure, nom) changent,
+  // mais pas à chaque simple coche.
+  const reminderSig = JSON.stringify(
+    habits.map((h) => [h.id, h.name, h.emoji, h.days, h.reminder ?? null]),
+  );
+  useEffect(() => {
+    if (loaded) syncReminders(habits);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reminderSig, loaded]);
 
   const addHabit = useCallback((input: HabitInput) => {
     setHabits((hs) => [

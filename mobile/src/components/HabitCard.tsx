@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { WEEK_DAYS, addDays, toKey } from '@/lib/dates';
 import { Habit, currentStreak, isDone, isScheduled } from '@/lib/habits';
+import { formatTime } from '@/lib/notifications';
 import { useTheme } from '@/lib/theme';
 
 type Props = {
@@ -40,6 +41,7 @@ export function HabitCard({ habit, today, onToggle, onEdit }: Props) {
           </Text>
           <Text style={{ color: t.muted, fontSize: 13 }}>
             🔥 {streak} {streak > 1 ? 'jours' : 'jour'} de suite
+            {habit.reminder ? `  ·  🔔 ${formatTime(habit.reminder.hour, habit.reminder.minute)}` : ''}
           </Text>
         </View>
         <Pressable
