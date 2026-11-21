@@ -159,6 +159,9 @@ table.lines .input{padding:6px 7px}
       <a href="#saisie" data-v="saisie">Saisie <span class="k">écritures</span></a>
       <a href="#ecritures" data-v="ecritures">Journaux</a>
       <a href="#import" data-v="import">Importer <span class="k">PDF · XLS · TXT</span></a>
+      <a href="#lettrage" data-v="lettrage">Lettrage <span class="k">tiers</span></a>
+      <div class="nav-group">Personnel</div>
+      <a href="#paie" data-v="paie">Paie <span class="k">CNSS · ITS</span></a>
       <div class="nav-group">États</div>
       <a href="#grandlivre" data-v="grandlivre">Grand livre</a>
       <a href="#balance" data-v="balance">Balance</a>
@@ -395,6 +398,11 @@ PLAN_TXT.split("\n").forEach(l => { const [n, lib] = l.split("|"); PLAN[n] = lib
 const CLASSES = {1:"Comptes de ressources durables",2:"Comptes d'actif immobilisé",3:"Comptes de stocks",4:"Comptes de tiers",5:"Comptes de trésorerie",6:"Comptes de charges",7:"Comptes de produits",8:"Comptes des autres charges et produits",9:"Comptabilité analytique"};
 const JOURNAUX = {AC:"Achats",VE:"Ventes",BQ:"Banque",CA:"Caisse",OD:"Opérations diverses",PA:"Paie",AN:"À-nouveaux"};
 const DEF_SOC = (() => { const y = new Date().getFullYear(); return {raison:"",nif:"",rccm:"",adresse:"",regime:"RNI",debut:`${y}-01-01`,fin:`${y}-12-31`,tva:19}; })();
+const DEF_PAIE = {cnssSal: 5.25, empPension: 6.25, empPF: 8.4, empAT: 1.75, anpe: 1, plafond: 500000, plancher: 42000, fp: 13, cnssMaxRbp: 6, effort: 1, effortOn: true,
+  bareme: [{max: 25000, taux: 1}, {max: 50000, taux: 2}, {max: 100000, taux: 6}, {max: 150000, taux: 13}, {max: 300000, taux: 25}, {max: 400000, taux: 30}, {max: 700000, taux: 32}, {max: 1000000, taux: 34}, {max: 0, taux: 35}],
+  famille: [0, 7, 12, 17, 22, 25, 27, 30]};
+const FAMILLE_LBL = ["Aucune charge", "1 charge", "2 charges", "3 charges", "4 charges", "5 charges", "6 charges", "7 charges (conjoint et 6 enfants)"];
+const JSPDF_URL = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
 const LS_KEY = "smartcompta-exp-v1";
 const XLSX_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
 const PDF_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
@@ -513,7 +521,7 @@ async function exportXlsx(filename, sheets) {
 }
 
 /* ============ État & stockage ============ */
-const S = {mode: "loading", societe: {...DEF_SOC}, comptes: {}, ecritures: [], ready: false, slow: false, dbError: null};
+const S = {mode: "loading", societe: {...DEF_SOC}, comptes: {}, ecritures: [], salaries: [], bulletins: [], paie: {...DEF_PAIE}, ready: false, slow: false, dbError: null};
 const Store = {
   db: null,
   async init() {
@@ -521,9 +529,12 @@ const Store = {
     const db = await claudeUse("db");
     if (!db) return this.local();
     this.db = db; S.mode = "db";
-    const got = {e: false, c: false, s: false};
+    const got = {e: false, c: false, s: false, sa: false, b: false, p: false};
     const timer = setTimeout(() => { if (!S.ready) { S.slow = true; renderStatus(); } }, 10000);
-    const check = () => { if (got.e && got.c && got.s && !S.ready) { S.ready = true; S.slow = false; clearTimeout(timer); } refresh(); };
+    const check = () => { if (Object.values(got).every(Boolean) && !S.ready) { S.ready = true; S.slow = false; clearTimeout(timer); } refresh(); };
+    db.collection("salaries").onSnapshot(snap => { S.salaries = snap.docs.map(d => ({id: d.id, ...d.data()})); got.sa = true; check(); }, onErr);
+    db.collection("bulletins").onSnapshot(snap => { S.bulletins = snap.docs.map(d => ({id: d.id, ...d.data()})); got.b = true; check(); }, onErr);
+    db.doc("config/paie").onSnapshot(snap => { S.paie = {...DEF_PAIE, ...(snap.exists ? snap.data() : {})}; got.p = true; check(); }, onErr);
     const onErr = e => { clearTimeout(timer); S.dbError = e.code; S.ready = true; refresh(); };
     db.collection("ecritures").onSnapshot(snap => { S.ecritures = snap.docs.map(d => ({id: d.id, ...d.data()})); got.e = true; check(); }, onErr);
     db.collection("comptes").onSnapshot(snap => { const m = {}; snap.docs.forEach(d => { const x = d.data(); if (x && x.num) m[x.num] = x.lib; }); S.comptes = m; got.c = true; fillDatalist(); check(); }, onErr);
@@ -531,12 +542,12 @@ const Store = {
   },
   local() {
     S.mode = "local";
-    try { const raw = localStorage.getItem(LS_KEY); if (raw) { const d = JSON.parse(raw); S.ecritures = d.ecritures || []; S.comptes = d.comptes || {}; S.societe = {...DEF_SOC, ...(d.societe || {})}; } } catch (e) {}
+    try { const raw = localStorage.getItem(LS_KEY); if (raw) { const d = JSON.parse(raw); S.ecritures = d.ecritures || []; S.comptes = d.comptes || {}; S.societe = {...DEF_SOC, ...(d.societe || {})}; S.salaries = d.salaries || []; S.bulletins = d.bulletins || []; S.paie = {...DEF_PAIE, ...(d.paie || {})}; } } catch (e) {}
     S.ready = true; fillDatalist(); refresh();
   },
   persist() {
     if (S.mode !== "local") return;
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ecritures: S.ecritures, comptes: S.comptes, societe: S.societe})); }
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ecritures: S.ecritures, comptes: S.comptes, societe: S.societe, salaries: S.salaries, bulletins: S.bulletins, paie: S.paie})); }
     catch (e) { toast("Ce navigateur refuse l'enregistrement local : exportez une sauvegarde.", "bad"); }
   },
   async saveEntry(e) {
@@ -563,6 +574,23 @@ const Store = {
   async deleteAccount(num) {
     if (S.mode === "db") { await this.db.collection("comptes").doc(num).delete(); return; }
     delete S.comptes[num]; this.persist(); fillDatalist(); refresh();
+  },
+  async putMany(coll, docs) {
+    if (S.mode === "db") {
+      let i = 0;
+      const w = async () => { while (i < docs.length) { const {id, ...b} = docs[i++]; await this.db.collection(coll).doc(id).set(b); } };
+      await Promise.all([w(), w(), w(), w()]); return;
+    }
+    docs.forEach(d => { const a = S[coll], k = a.findIndex(x => x.id === d.id); if (k >= 0) a[k] = d; else a.push(d); });
+    this.persist(); refresh();
+  },
+  async delMany(coll, ids) {
+    if (S.mode === "db") { for (const id of ids) await this.db.collection(coll).doc(id).delete(); return; }
+    const set = new Set(ids); S[coll] = S[coll].filter(x => !set.has(x.id)); this.persist(); refresh();
+  },
+  async putPaie(p) {
+    if (S.mode === "db") { await this.db.doc("config/paie").set(p); return; }
+    S.paie = {...DEF_PAIE, ...p}; this.persist(); refresh();
   },
   async saveSociete(s) {
     if (S.mode === "db") { await this.db.doc("config/societe").set(s); return; }
@@ -704,6 +732,8 @@ VIEWS.tableau = {
             ${Math.abs(attente) > 0.004 ? `<div class="alert">Compte d'attente 471 : solde de <b>${fmt0(attente)}</b> FCFA sur ${nAtt} ligne(s). Reclassez ces opérations importées dans leurs comptes définitifs. <a href="#grandlivre" data-acc="471">Voir le détail</a></div>` : `<div class="alert good">Compte d'attente 471 soldé.</div>`}
             ${Math.abs(clients) > 0.004 && clients < 0 ? `<div class="alert">Le compte clients est créditeur : avances reçues ou règlement non rapproché.</div>` : ""}
             ${treso < 0 ? `<div class="alert bad">Trésorerie négative : vérifiez les découverts (compte 56) ou une saisie inversée.</div>` : ""}
+            ${(() => { const per = new Date().toISOString().slice(0, 7); return S.salaries.some(s => s.actif !== false) && !S.bulletins.some(b => b.periode === per) ? `<div class="alert">La paie de ${moisLabel(per)} n'est pas encore validée. <a href="#paie">Préparer la paie</a></div>` : ""; })()}
+            ${(() => { const n = tiersAccounts().reduce((s, a) => s + a.nl, 0); return n ? `<div class="note">${n} ligne(s) de tiers non lettrée(s). <a href="#lettrage">Lettrer</a></div>` : ""; })()}
             <div class="note">${S.ecritures.length} écriture(s) dans le dossier, toutes équilibrées à la saisie.</div>
           </div>
         </div>
@@ -851,7 +881,8 @@ VIEWS.saisie = {
     const e = {id: F.editId || uid(), date: F.date, journal: F.journal, piece: F.piece.trim() || (prev ? prev.piece : nextPiece(F.journal)), libelle: lib, lignes,
       source: prev ? prev.source || "saisie" : "saisie", cree: prev ? prev.cree || new Date().toISOString() : new Date().toISOString(), modifie: new Date().toISOString()};
     if (prev && prev.exemple) e.exemple = true;
-    const ok = await guard(() => Store.saveEntry(e), F.editId ? "Écriture modifiée." : `Écriture ${e.piece} enregistrée.`);
+    const hadL = prev && (prev.lignes || []).some(l => l.lettre);
+    const ok = await guard(() => Store.saveEntry(e), F.editId ? "Écriture modifiée." + (hadL ? " Son lettrage a été retiré : relettrez-la si besoin." : "") : `Écriture ${e.piece} enregistrée.`);
     if (ok) { const j = F.journal; resetForm(); F.journal = j; this.mount(el); }
   }
 };
@@ -1322,7 +1353,7 @@ VIEWS.grandlivre = {
       if (GL.from && e.date < GL.from) { opening.set(c, (opening.get(c) || 0) + (+l.debit || 0) - (+l.credit || 0)); continue; }
       if (GL.to && e.date > GL.to) continue;
       if (!m.has(c)) m.set(c, []);
-      m.get(c).push({date: e.date, journal: e.journal, piece: e.piece, libelle: l.libelle || e.libelle, debit: +l.debit || 0, credit: +l.credit || 0});
+      m.get(c).push({date: e.date, journal: e.journal, piece: e.piece, libelle: l.libelle || e.libelle, debit: +l.debit || 0, credit: +l.credit || 0, lettre: l.lettre || ""});
     }
     return [...new Set([...m.keys(), ...opening.keys()])].sort().map(c => {
       let s = opening.get(c) || 0; const open = s;
@@ -1341,7 +1372,7 @@ VIEWS.grandlivre = {
       return `<div class="card"><div class="card-h"><h2><span class="acc">${esc(a.compte)}</span> · ${esc(labelOf(a.compte))}</h2><span class="pill ${a.solde >= 0 ? "accent" : "ochre"}">Solde ${sd(a.solde)}</span></div>
       <div class="tbl-wrap"><table class="t"><thead><tr><th>Date</th><th>Jnl</th><th>Pièce</th><th>Libellé</th><th class="num">Débit</th><th class="num">Crédit</th><th class="num">Solde</th></tr></thead><tbody>
       ${Math.abs(a.open) > .004 ? `<tr class="sub"><td colspan="6">Report au ${fmtDate(GL.from)}</td><td class="num">${sd(a.open)}</td></tr>` : ""}
-      ${a.lines.map(l => `<tr><td>${fmtDate(l.date)}</td><td><span class="jr">${esc(l.journal)}</span></td><td class="acc">${esc(l.piece)}</td><td>${esc(l.libelle)}</td><td class="num">${fmt(l.debit)}</td><td class="num">${fmt(l.credit)}</td><td class="num">${sd(l.solde)}</td></tr>`).join("")}
+      ${a.lines.map(l => `<tr><td>${fmtDate(l.date)}</td><td><span class="jr">${esc(l.journal)}</span></td><td class="acc">${esc(l.piece)}</td><td>${esc(l.libelle)}${l.lettre ? ` <span class="pill good">${esc(l.lettre)}</span>` : ""}</td><td class="num">${fmt(l.debit)}</td><td class="num">${fmt(l.credit)}</td><td class="num">${sd(l.solde)}</td></tr>`).join("")}
       <tr class="tot"><td colspan="4">Total des mouvements</td><td class="num">${fmt0(td)}</td><td class="num">${fmt0(tc)}</td><td class="num">${sd(a.solde)}</td></tr></tbody></table></div></div>`;
     }).join("") + (accs.length > 150 ? `<p class="note">Affichage limité à 150 comptes : précisez le filtre ou exportez en Excel.</p>` : "");
   }
@@ -1558,6 +1589,380 @@ VIEWS.societe = {
     const n = S.ecritures.filter(x => x.exemple).length;
     const t = $("#s-ex-txt", el); if (t) t.textContent = n ? `${n} écriture(s) de démonstration sont présentes. Supprimez-les avant de tenir votre comptabilité réelle.` : "Aucune écriture d'exemple dans le dossier.";
     const b = $("#s-ex", el); if (b) b.disabled = !n;
+  }
+};
+
+/* ============ Lettrage ============ */
+const LT = {acc: "", all: false, sel: new Set()};
+function tiersAccounts() {
+  const m = new Map();
+  S.ecritures.forEach(e => (e.lignes || []).forEach(l => {
+    const c = normAcc(l.compte); if (!/^4[0-7]/.test(c)) return;
+    const r = m.get(c) || {c, nl: 0, s: 0}; r.s += (+l.debit || 0) - (+l.credit || 0); if (!l.lettre) r.nl++; m.set(c, r);
+  }));
+  return [...m.values()].sort((a, b) => a.c.localeCompare(b.c));
+}
+function letterCode(n) { let s = ""; n += 26; while (n >= 0) { s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26) - 1; } return s; }
+function accLines(acc) {
+  const out = [];
+  S.ecritures.forEach(e => (e.lignes || []).forEach((l, i) => { if (normAcc(l.compte) === acc) out.push({e, i, l, key: e.id + ":" + i, d: +l.debit || 0, c: +l.credit || 0}); }));
+  return out.sort((a, b) => (a.e.date + a.e.piece).localeCompare(b.e.date + b.e.piece));
+}
+function applyLetters(changes) {
+  const byE = new Map();
+  changes.forEach(ch => {
+    const [id, i] = ch.key.split(":"); const e = S.ecritures.find(x => x.id === id); if (!e) return;
+    if (!byE.has(id)) byE.set(id, {...e, lignes: e.lignes.map(l => ({...l}))});
+    const ne = byE.get(id); if (ch.lettre) ne.lignes[+i].lettre = ch.lettre; else delete ne.lignes[+i].lettre;
+  });
+  return guard(() => Store.putMany("ecritures", [...byE.values()]));
+}
+VIEWS.lettrage = {
+  title: "Lettrage des comptes de tiers",
+  mount(el) {
+    el.innerHTML = `<div class="card"><div class="form-row">
+      <div class="field" style="grid-column:span 2"><label for="l-acc">Compte de tiers</label><select class="input" id="l-acc"></select></div>
+      <div class="field"><label for="l-all">Afficher</label><select class="input" id="l-all"><option value="0">Lignes non lettrées</option><option value="1">Toutes les lignes</option></select></div></div>
+      <p class="note" style="margin-top:8px">Rapprochez une facture et son règlement : cochez des lignes dont le total débit égale le total crédit, puis lettrez-les. Le lettrage automatique associe les montants identiques de sens opposé.</p></div>
+      <div id="l-res" style="margin-top:14px;display:flex;flex-direction:column;gap:14px"></div>`;
+    $("#l-acc").onchange = e => { LT.acc = e.target.value; LT.sel.clear(); this.update(el); };
+    $("#l-all").value = LT.all ? "1" : "0";
+    $("#l-all").onchange = e => { LT.all = e.target.value === "1"; this.update(el); };
+  },
+  update(el) {
+    const box = $("#l-res", el); if (!box) return;
+    if (!S.ready || S.dbError) { box.innerHTML = `<div class="card">${loadingOr("")}</div>`; return; }
+    const accs = tiersAccounts(), sel = $("#l-acc", el);
+    if (!accs.length) { sel.innerHTML = ""; box.innerHTML = `<div class="card">${emptyState("Aucun compte de tiers mouvementé", "Le lettrage s'applique aux comptes de la classe 4 : clients, fournisseurs, personnel, organismes sociaux et État.")}</div>`; return; }
+    if (!LT.acc || !accs.some(a => a.c === LT.acc)) LT.acc = (accs.find(a => a.nl > 0 && /^4[01]/.test(a.c)) || accs.find(a => a.nl > 0) || accs[0]).c;
+    sel.innerHTML = accs.map(a => `<option value="${esc(a.c)}" ${a.c === LT.acc ? "selected" : ""}>${esc(a.c)} · ${esc(labelOf(a.c))}${a.nl ? ` (${a.nl} à lettrer)` : ""}</option>`).join("");
+    const lines = accLines(LT.acc), valid = new Set(lines.map(x => x.key));
+    [...LT.sel].forEach(k => { if (!valid.has(k)) LT.sel.delete(k); });
+    const shown = lines.filter(x => LT.all || !x.l.lettre);
+    const today = Date.parse(new Date().toISOString().slice(0, 10));
+    const age = d => Math.max(0, Math.floor((today - Date.parse(d)) / 864e5));
+    const solde = lines.reduce((s, x) => s + x.d - x.c, 0), nonL = lines.filter(x => !x.l.lettre), soldeNL = nonL.reduce((s, x) => s + x.d - x.c, 0);
+    const B = [0, 0, 0, 0]; nonL.forEach(x => { const a = age(x.e.date); B[a <= 30 ? 0 : a <= 60 ? 1 : a <= 90 ? 2 : 3] += x.d - x.c; });
+    box.innerHTML = `
+      <div class="grid g4">
+        <div class="kpi"><span>Solde du compte</span><b>${fmt0(solde)}</b><small>${solde >= 0 ? "Débiteur" : "Créditeur"}</small></div>
+        <div class="kpi"><span>Reste non lettré</span><b>${fmt0(soldeNL)}</b><small>${nonL.length} ligne(s) ouverte(s)</small></div>
+        <div class="kpi"><span>Ouvert depuis 30 j au plus</span><b>${fmt0(B[0])}</b><small>31 à 60 j : ${fmt0(B[1])}</small></div>
+        <div class="kpi ${Math.abs(B[3]) > .004 ? "neg" : ""}"><span>Ouvert depuis plus de 90 j</span><b>${fmt0(B[3])}</b><small>61 à 90 j : ${fmt0(B[2])}</small></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2><span class="acc">${esc(LT.acc)}</span> · ${esc(labelOf(LT.acc))}</h2>
+          <div class="btns"><button class="btn sm" id="l-auto">Lettrage automatique</button><button class="btn sm" id="l-un">Délettrer</button><button class="btn sm primary" id="l-go">Lettrer la sélection</button></div></div>
+        <div class="totals" style="margin-bottom:10px"><div><span>Sélection débit</span><b id="l-sd">0</b></div><div><span>Sélection crédit</span><b id="l-sc">0</b></div><div><span>Écart</span><b id="l-se">0</b></div></div>
+        ${shown.length ? `<div class="tbl-wrap" style="max-height:520px;overflow:auto"><table class="t"><thead><tr><th></th><th>Date</th><th>Jnl</th><th>Pièce</th><th>Libellé</th><th class="num">Débit</th><th class="num">Crédit</th><th>Lettre</th><th class="num">Âge</th></tr></thead><tbody>
+        ${shown.map(x => `<tr><td><input type="checkbox" class="chk" data-k="${esc(x.key)}" ${LT.sel.has(x.key) ? "checked" : ""} aria-label="Sélectionner la ligne ${esc(x.e.piece)}"></td><td>${fmtDate(x.e.date)}</td><td><span class="jr">${esc(x.e.journal)}</span></td><td class="acc">${esc(x.e.piece)}</td><td>${esc(x.l.libelle || x.e.libelle)}</td><td class="num">${fmt(x.d)}</td><td class="num">${fmt(x.c)}</td><td>${x.l.lettre ? `<span class="pill good">${esc(x.l.lettre)}</span>` : ""}</td><td class="num">${x.l.lettre ? "" : age(x.e.date) + " j"}</td></tr>`).join("")}
+        </tbody></table></div>` : emptyState("Tout est lettré", "Toutes les lignes de ce compte sont rapprochées. Choisissez « Toutes les lignes » pour les revoir.")}
+      </div>`;
+    const paint = () => {
+      const s = lines.filter(x => LT.sel.has(x.key)), sD = s.reduce((a, x) => a + x.d, 0), sC = s.reduce((a, x) => a + x.c, 0), ec = r2(sD - sC);
+      $("#l-sd", box).textContent = fmt0(sD); $("#l-sc", box).textContent = fmt0(sC); $("#l-se", box).textContent = fmt0(ec);
+      $("#l-go", box).disabled = !(s.length >= 2 && ec === 0 && !s.some(x => x.l.lettre));
+      $("#l-un", box).disabled = !s.some(x => x.l.lettre);
+    };
+    $$("[data-k]", box).forEach(c => c.onchange = () => { c.checked ? LT.sel.add(c.dataset.k) : LT.sel.delete(c.dataset.k); paint(); });
+    paint();
+    const nextCode = used => { let n = 0; while (used.has(letterCode(n))) n++; const c = letterCode(n); used.add(c); return c; };
+    $("#l-go", box).onclick = async () => {
+      const code = nextCode(new Set(lines.map(x => x.l.lettre).filter(Boolean)));
+      const keys = [...LT.sel];
+      if (await applyLetters(keys.map(key => ({key, lettre: code})))) { toast(`${keys.length} lignes lettrées « ${code} ».`); LT.sel.clear(); }
+    };
+    $("#l-un", box).onclick = async () => {
+      const codes = new Set(lines.filter(x => LT.sel.has(x.key) && x.l.lettre).map(x => x.l.lettre));
+      if (await applyLetters(lines.filter(x => codes.has(x.l.lettre)).map(x => ({key: x.key, lettre: null})))) { toast(`Lettrage ${[...codes].join(", ")} retiré.`); LT.sel.clear(); }
+    };
+    $("#l-auto", box).onclick = async () => {
+      const used = new Set(lines.map(x => x.l.lettre).filter(Boolean)), open = lines.filter(x => !x.l.lettre), taken = new Set(), ch = [];
+      open.filter(x => x.d > 0).forEach(dx => {
+        const m = open.find(cx => cx.c > 0 && !taken.has(cx.key) && r2(cx.c) === r2(dx.d));
+        if (m) { taken.add(m.key); const code = nextCode(used); ch.push({key: dx.key, lettre: code}, {key: m.key, lettre: code}); }
+      });
+      if (!ch.length) return toast("Aucun couple de montants identiques à rapprocher sur ce compte.");
+      if (await applyLetters(ch)) toast(`${ch.length / 2} rapprochement(s) effectué(s).`);
+    };
+  }
+};
+
+/* ============ Paie ============ */
+function moisLabel(p) { const [y, m] = p.split("-"); return ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"][+m - 1] + " " + y; }
+function lastDay(p) { const [y, m] = p.split("-").map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); }
+const rnd = n => Math.round(n);
+function calcBulletin(s, v, P) {
+  const base = +v.base || 0, primesCnss = +v.primesCnss || 0, primesImpo = +v.primesImpo || 0, exonerees = +v.exonerees || 0, avance = +v.avance || 0;
+  const brut = base + primesCnss + primesImpo;                       // revenu brut global imposable
+  const brutCnss = base + primesCnss;
+  const baseCnss = s.cnss !== false && brutCnss > 0 ? Math.min(Math.max(brutCnss, P.plancher || 0), P.plafond || Infinity) : 0;
+  const cnssSal = rnd(baseCnss * P.cnssSal / 100);
+  const abatCnss = Math.min(cnssSal, rnd(base * P.cnssMaxRbp / 100)); // plafonné à 6 % de la rémunération brute principale
+  const fp = rnd(Math.max(0, brut - abatCnss) * P.fp / 100);
+  const ri = Math.max(0, Math.floor((brut - abatCnss - fp) / 1000) * 1000);
+  const tauxFam = P.famille[Math.min(7, Math.max(0, s.charges | 0))] || 0;
+  const fam = rnd(ri * tauxFam / 100), rni = ri - fam;
+  let its = 0, prev = 0;
+  for (const t of P.bareme) { const hi = t.max || Infinity; if (rni > prev) its += (Math.min(rni, hi) - prev) * t.taux / 100; prev = hi; if (rni <= hi) break; }
+  its = rnd(its);
+  const netAvant = brut + exonerees - cnssSal - its;
+  const eg = P.effortOn ? rnd(netAvant * P.effort / 100) : 0;
+  const net = netAvant - eg - avance;
+  const empCnss = rnd(baseCnss * (P.empPension + P.empPF + P.empAT) / 100), anpe = rnd(baseCnss * P.anpe / 100);
+  return {base, primesCnss, primesImpo, exonerees, avance, brut, baseCnss, cnssSal, abatCnss, fp, ri, tauxFam, fam, rni, its, eg, net, empCnss, anpe,
+    patronal: empCnss + anpe, cout: brut + exonerees + empCnss + anpe, tauxCnss: P.cnssSal, tauxEg: P.effortOn ? P.effort : 0, tauxPat: r2(P.empPension + P.empPF + P.empAT), tauxAnpe: P.anpe, tauxFp: P.fp};
+}
+function detailHtml(r) {
+  const row = (a, b) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:2px 0;border-bottom:1px dotted var(--line)"><span>${a}</span><b class="acc">${fmt0(b)}</b></div>`;
+  return `<div class="grid g3" style="font-size:.82rem;gap:2px 28px;padding:4px 0;position:sticky;left:0;width:min(900px,calc(100vw - 80px))">${row("Revenu brut imposable", r.brut)}${row("Base CNSS retenue", r.baseCnss)}${row("Abattement CNSS", -r.abatCnss)}
+    ${row(`Frais professionnels ${String(r.tauxFp).replace(".", ",")} %`, -r.fp)}${row("Revenu imposable arrondi", r.ri)}${row(`Charges de famille ${r.tauxFam} %`, -r.fam)}
+    ${row("Revenu net imposable", r.rni)}${row("ITS du mois", r.its)}${row("Effort de guerre", r.eg)}
+    ${row(`CNSS patronale ${String(r.tauxPat).replace(".", ",")} %`, r.empCnss)}${row(`ANPE ${String(r.tauxAnpe).replace(".", ",")} %`, r.anpe)}${row("Coût total employeur", r.cout)}</div>`;
+}
+function livreRows(list) {
+  const H = ["Matricule", "Nom", "N° CNSS", "Salaire de base", "Primes soumises CNSS", "Autres primes imposables", "Indemnités exonérées", "Brut imposable", "Base CNSS", "CNSS salarié", "Revenu imposable", "Abattement famille", "RNI", "ITS", "Effort de guerre", "Avance", "Net à payer", "CNSS patronale", "ANPE", "Coût employeur"];
+  const K = ["base", "primesCnss", "primesImpo", "exonerees", "brut", "baseCnss", "cnssSal", "ri", "fam", "rni", "its", "eg", "avance", "net", "empCnss", "anpe", "cout"];
+  const rows = [H, ...list.map(b => [b.matricule || "", b.nom, b.cnssNo || "", ...K.map(k => b[k] || 0)])];
+  rows.push(["", "TOTAL", "", ...K.map(k => list.reduce((s, b) => s + (b[k] || 0), 0))]);
+  return rows;
+}
+async function bulletinPdf(b) {
+  try {
+    await loadScript(JSPDF_URL);
+    const doc = new window.jspdf.jsPDF({unit: "mm", format: "a4"});
+    const f = n => n ? fmt0(n).replace(/[  ]/g, " ") : "";
+    const pct = n => String(n).replace(".", ",") + " %";
+    const soc = S.societe; let y = 18;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.text("BULLETIN DE PAIE", 105, y, {align: "center"}); y += 6;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Période : " + moisLabel(b.periode), 105, y, {align: "center"}); y += 11;
+    doc.setFont("helvetica", "bold"); doc.text(soc.raison || "Employeur", 15, y); doc.text(b.nom, 112, y); doc.setFont("helvetica", "normal"); y += 5;
+    const L = [soc.adresse, soc.nif ? "NIF : " + soc.nif : "", soc.rccm ? "RCCM : " + soc.rccm : ""].filter(Boolean);
+    const R = [b.poste ? "Emploi : " + b.poste : "", b.matricule ? "Matricule : " + b.matricule : "", b.cnssNo ? "N° CNSS : " + b.cnssNo : "", "Charges de famille : " + (b.charges | 0)].filter(Boolean);
+    for (let i = 0; i < Math.max(L.length, R.length); i++) { if (L[i]) doc.text(L[i], 15, y); if (R[i]) doc.text(R[i], 112, y); y += 5; }
+    y += 5;
+    const X = {lib: 15, base: 118, taux: 140, gain: 168, ret: 195};
+    const line = (cells, bold) => {
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.text(cells[0], X.lib, y);
+      [["base", 1], ["taux", 2], ["gain", 3], ["ret", 4]].forEach(([k, i]) => { if (cells[i]) doc.text(cells[i], X[k], y, {align: "right"}); });
+      y += 6;
+    };
+    doc.setFillColor(230, 236, 240); doc.rect(13, y - 4.5, 184, 7, "F");
+    line(["Rubrique", "Base", "Taux", "Gains", "Retenues"], true); doc.line(13, y - 3.5, 197, y - 3.5);
+    line(["Salaire de base", "", "", f(b.base), ""]);
+    if (b.primesCnss) line(["Primes soumises à cotisation", "", "", f(b.primesCnss), ""]);
+    if (b.primesImpo) line(["Autres primes imposables", "", "", f(b.primesImpo), ""]);
+    if (b.exonerees) line(["Indemnités non imposables", "", "", f(b.exonerees), ""]);
+    line(["Cotisation CNSS salarié", f(b.baseCnss), pct(b.tauxCnss), "", f(b.cnssSal)]);
+    line(["Impôt sur les traitements et salaires (ITS)", f(b.rni), "barème", "", f(b.its)]);
+    if (b.eg) line(["Retenue effort de guerre", "", pct(b.tauxEg), "", f(b.eg)]);
+    if (b.avance) line(["Avance sur salaire", "", "", "", f(b.avance)]);
+    doc.line(13, y - 3.5, 197, y - 3.5);
+    line(["Totaux", "", "", f(b.brut + b.exonerees), f(b.cnssSal + b.its + b.eg + b.avance)], true);
+    y += 2; doc.setFillColor(14, 107, 99); doc.rect(120, y - 5, 77, 9, "F"); doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text("NET À PAYER", 124, y + 1); doc.text(f(b.net) + " FCFA", 194, y + 1, {align: "right"});
+    doc.setTextColor(0, 0, 0); doc.setFontSize(9); doc.setFont("helvetica", "normal"); y += 14;
+    doc.text(`Détail ITS : revenu brut ${f(b.brut)} - CNSS ${f(b.abatCnss)} - frais professionnels ${f(b.fp)} = revenu imposable arrondi ${f(b.ri)} ; charges de famille ${b.tauxFam} % : ${f(b.fam)} ; RNI ${f(b.rni)}.`, 15, y, {maxWidth: 182}); y += 10;
+    doc.text(`Charges patronales (pour information) : CNSS ${pct(b.tauxPat)} = ${f(b.empCnss)} ; ANPE ${pct(b.tauxAnpe)} = ${f(b.anpe)} ; coût total employeur ${f(b.cout)} FCFA.`, 15, y, {maxWidth: 182}); y += 16;
+    doc.text("Signature de l'employeur", 15, y); doc.text("Signature du salarié", 140, y);
+    doc.setFontSize(7.5); doc.setTextColor(110, 110, 110); doc.text("Document établi avec SmartCompta Exp. À conserver par le salarié.", 105, 287, {align: "center"});
+    await saveFile(`bulletin-${(b.matricule || b.nom).replace(/[^\w-]+/g, "_")}-${b.periode}.pdf`, doc.output("blob"), "application/pdf");
+  } catch (e) { toast("Bulletin impossible à générer : " + e.message, "bad"); }
+}
+const PY = {tab: "mois", periode: new Date().toISOString().slice(0, 7), vars: {}, open: {}, edit: null};
+VIEWS.paie = {
+  title: "Paie",
+  mount(el) {
+    el.innerHTML = `<div class="seg" role="tablist" aria-label="Paie" style="margin-bottom:14px"><button data-t="mois">Paie du mois</button><button data-t="salaries">Salariés</button><button data-t="params">Paramètres</button></div><div id="py-tab"></div>`;
+    $$("[data-t]", el).forEach(b => b.onclick = () => { PY.tab = b.dataset.t; this.mountTab(el); this.update(el); });
+    this.mountTab(el);
+  },
+  mountTab(el) {
+    $$("[data-t]", el).forEach(b => b.classList.toggle("on", b.dataset.t === PY.tab));
+    const box = $("#py-tab", el);
+    if (PY.tab === "mois") {
+      box.innerHTML = `<div class="card" style="margin-bottom:14px"><div class="form-row"><div class="field"><label for="py-per">Mois de paie</label><input class="input" type="month" id="py-per" value="${PY.periode}"></div></div></div><div id="py-body"></div>`;
+      $("#py-per").onchange = e => { if (e.target.value) { PY.periode = e.target.value; this.update(el); } };
+    } else if (PY.tab === "salaries") { this.mountSal(box); }
+    else this.mountParams(box);
+  },
+  update(el) {
+    if (!S.ready || S.dbError) { const b = $("#py-body", el) || $("#ps-list", el); if (b) b.innerHTML = `<div class="card">${loadingOr("")}</div>`; return; }
+    if (PY.tab === "mois") this.drawMois(el);
+    if (PY.tab === "salaries") this.drawSal(el);
+  },
+  drawMois(el) {
+    const box = $("#py-body", el); if (!box) return;
+    const P = S.paie, per = PY.periode;
+    const done = S.bulletins.filter(b => b.periode === per).sort((a, b) => (a.nom || "").localeCompare(b.nom || ""));
+    const sumOf = (list, k) => list.reduce((s, x) => s + (x[k] || 0), 0);
+    if (done.length) {
+      box.innerHTML = `<div class="card"><div class="card-h"><div><h2>Paie de ${moisLabel(per)} <span class="pill good">Validée</span></h2><p>Comptabilisée au journal PA, pièce PA-${per}.</p></div>
+        <div class="btns"><button class="btn sm" id="py-xls">Livre de paie (Excel)</button><button class="btn sm" id="py-decl">État CNSS et ITS (Excel)</button><button class="btn sm danger" id="py-cancel">Annuler cette paie</button></div></div>
+        <div class="tbl-wrap"><table class="t"><thead><tr><th>Salarié</th><th class="num">Brut</th><th class="num">CNSS</th><th class="num">ITS</th><th class="num">Effort de guerre</th><th class="num">Avance</th><th class="num">Net à payer</th><th class="num">Charges patronales</th><th></th></tr></thead><tbody>
+        ${done.map(b => `<tr><td><b>${esc(b.nom)}</b><div class="acc-lbl">${esc(b.matricule)}</div></td><td class="num">${fmt0(b.brut + b.exonerees)}</td><td class="num">${fmt0(b.cnssSal)}</td><td class="num">${fmt0(b.its)}</td><td class="num">${fmt0(b.eg)}</td><td class="num">${fmt(b.avance)}</td><td class="num"><b>${fmt0(b.net)}</b></td><td class="num">${fmt0(b.patronal)}</td><td><button class="btn sm" data-pdf="${esc(b.id)}">Bulletin PDF</button></td></tr>`).join("")}
+        <tr class="tot"><td>Totaux</td>${["brut", "cnssSal", "its", "eg", "avance", "net", "patronal"].map(k => `<td class="num">${fmt0(k === "brut" ? sumOf(done, "brut") + sumOf(done, "exonerees") : sumOf(done, k))}</td>`).join("")}<td></td></tr></tbody></table></div></div>`;
+      $$("[data-pdf]", box).forEach(b => b.onclick = () => bulletinPdf(done.find(x => x.id === b.dataset.pdf)));
+      $("#py-xls", box).onclick = () => exportXlsx(`livre-de-paie-${per}.xlsx`, [{name: "Livre de paie", rows: livreRows(done)}]);
+      $("#py-decl", box).onclick = () => {
+        const cnss = [["Matricule", "Nom", "N° CNSS", "Salaire brut soumis", "Base plafonnée", "Part salariale", "Part patronale", "ANPE", "Total à verser"]];
+        done.forEach(b => cnss.push([b.matricule, b.nom, b.cnssNo, b.base + b.primesCnss, b.baseCnss, b.cnssSal, b.empCnss, b.anpe, b.cnssSal + b.empCnss + b.anpe]));
+        cnss.push(["", "TOTAL", "", sumOf(done, "base") + sumOf(done, "primesCnss"), sumOf(done, "baseCnss"), sumOf(done, "cnssSal"), sumOf(done, "empCnss"), sumOf(done, "anpe"), sumOf(done, "cnssSal") + sumOf(done, "empCnss") + sumOf(done, "anpe")]);
+        const its = [["Matricule", "Nom", "Brut imposable", "Revenu imposable", "Charges", "RNI", "ITS retenu", "Effort de guerre"]];
+        done.forEach(b => its.push([b.matricule, b.nom, b.brut, b.ri, b.charges, b.rni, b.its, b.eg]));
+        its.push(["", "TOTAL", sumOf(done, "brut"), sumOf(done, "ri"), "", sumOf(done, "rni"), sumOf(done, "its"), sumOf(done, "eg")]);
+        exportXlsx(`etat-cnss-its-${per}.xlsx`, [{name: "CNSS", rows: cnss}, {name: "ITS", rows: its}]);
+      };
+      armDelete($("#py-cancel", box), async () => {
+        const ok = await guard(async () => {
+          await Store.delMany("bulletins", done.map(b => b.id));
+          for (const id of ["paie-" + per, "paie-" + per + "-reg"]) if (S.ecritures.some(e => e.id === id)) await Store.deleteEntry(id);
+        }, `Paie de ${moisLabel(per)} annulée : bulletins et écritures supprimés.`);
+        if (ok) Object.keys(PY.vars).forEach(k => { if (k.startsWith(per)) delete PY.vars[k]; });
+      });
+      return;
+    }
+    const sal = S.salaries.filter(s => s.actif !== false).sort((a, b) => (a.nom || "").localeCompare(b.nom || ""));
+    if (!sal.length) {
+      box.innerHTML = `<div class="card">${emptyState("Aucun salarié actif", "Enregistrez d'abord vos salariés avec leur salaire de base et leurs charges de famille.", `<button class="btn primary" id="py-gosal">Ajouter un salarié</button>`)}</div>`;
+      $("#py-gosal", box).onclick = () => { PY.tab = "salaries"; this.mountTab(el); this.update(el); };
+      return;
+    }
+    sal.forEach(s => { if (!PY.vars[per + s.id]) PY.vars[per + s.id] = {base: s.base || 0, primesCnss: s.primesCnss || 0, primesImpo: s.primesImpo || 0, exonerees: s.exonerees || 0, avance: 0}; });
+    const V = s => PY.vars[per + s.id];
+    const IN = [["base", "Salaire de base"], ["primesCnss", "Primes soumises CNSS"], ["primesImpo", "Autres primes imposables"], ["exonerees", "Indemnités exonérées"], ["avance", "Avance à retenir"]];
+    const OUT = [["brut", "Brut imposable"], ["cnssSal", "CNSS salarié"], ["its", "ITS"], ["eg", "Effort de guerre"], ["net", "Net à payer"], ["patronal", "Charges patronales"]];
+    box.innerHTML = `<div class="card"><div class="card-h"><div><h2>Paie de ${moisLabel(per)} <span class="pill ochre">À valider</span></h2><p>Montants préremplis depuis la fiche de chaque salarié. Ajustez primes et avances du mois, puis validez.</p></div></div>
+      <div class="tbl-wrap"><table class="t lines"><thead><tr><th>Salarié</th>${IN.map(([, l]) => `<th class="num">${l}</th>`).join("")}${OUT.map(([, l]) => `<th class="num">${l}</th>`).join("")}<th></th></tr></thead><tbody>
+      ${sal.map(s => `<tr data-s="${esc(s.id)}"><td style="min-width:150px"><b>${esc(s.nom)}</b><div class="acc-lbl">${esc(s.matricule || "")}${s.matricule ? " · " : ""}${FAMILLE_LBL[s.charges | 0]}${s.cnss === false ? " · non immatriculé" : ""}</div></td>
+        ${IN.map(([k, l]) => `<td><input class="input num" style="min-width:100px" inputmode="decimal" data-k="${k}" value="${V(s)[k] || ""}" aria-label="${l}, ${esc(s.nom)}"></td>`).join("")}
+        ${OUT.map(([k]) => `<td class="num" data-o="${k}" style="padding-top:12px${k === "net" ? ";font-weight:600" : ""}"></td>`).join("")}
+        <td><button class="btn sm" data-det="${esc(s.id)}">Détail</button></td></tr>
+        <tr data-dr="${esc(s.id)}" hidden><td colspan="${2 + IN.length + OUT.length}"></td></tr>`).join("")}
+      <tr class="tot"><td>Totaux</td><td colspan="${IN.length}"></td>${OUT.map(([k]) => `<td class="num" data-tt="${k}"></td>`).join("")}<td></td></tr></tbody></table></div>
+      <div class="form-row" style="margin-top:14px">
+        <div class="field"><label for="py-date">Date de l'écriture de paie</label><input class="input" type="date" id="py-date" value="${lastDay(per)}"></div>
+        <div class="field"><label for="py-pay">Écriture de règlement des salaires</label><select class="input" id="py-pay"><option value="">Ne pas générer</option><option value="521">Virement bancaire (521)</option><option value="571">Espèces (571)</option></select></div>
+      </div>
+      <p class="note" style="margin-top:10px">La validation enregistre un bulletin par salarié et passe l'écriture au journal PA : 661 et 663 au débit, 6641 pour les charges patronales, 431 (CNSS et ANPE), 4472 (ITS), 4478 (effort de guerre), 421 (avances) et 422 (net à payer) au crédit.</p>
+      <div class="btns" style="margin-top:14px;justify-content:flex-end"><button class="btn" id="py-xls">Livre de paie provisoire (Excel)</button><button class="btn primary" id="py-val">Valider la paie de ${moisLabel(per)}</button></div></div>`;
+    const recalc = () => {
+      const T = {}; OUT.forEach(([k]) => T[k] = 0);
+      sal.forEach(s => {
+        const r = calcBulletin(s, V(s), P), tr = box.querySelector(`tr[data-s="${CSS.escape(s.id)}"]`);
+        OUT.forEach(([k]) => { T[k] += r[k]; tr.querySelector(`[data-o="${k}"]`).textContent = fmt0(r[k]); });
+        tr.querySelector('[data-o="net"]').style.color = r.net < 0 ? "var(--bad)" : "";
+        const dr = box.querySelector(`tr[data-dr="${CSS.escape(s.id)}"]`); if (!dr.hidden) dr.firstElementChild.innerHTML = detailHtml(r);
+      });
+      OUT.forEach(([k]) => { box.querySelector(`[data-tt="${k}"]`).textContent = fmt0(T[k]); });
+    };
+    $$("tr[data-s] input", box).forEach(inp => inp.addEventListener("input", () => { PY.vars[per + inp.closest("tr").dataset.s][inp.dataset.k] = Math.max(0, parseAmount(inp.value) || 0); recalc(); }));
+    $$("[data-det]", box).forEach(b => b.onclick = () => { const dr = box.querySelector(`tr[data-dr="${CSS.escape(b.dataset.det)}"]`); dr.hidden = !dr.hidden; b.textContent = dr.hidden ? "Détail" : "Masquer"; recalc(); });
+    recalc();
+    $("#py-xls", box).onclick = () => exportXlsx(`livre-de-paie-${per}-provisoire.xlsx`, [{name: "Livre de paie", rows: livreRows(sal.map(s => ({...calcBulletin(s, V(s), P), nom: s.nom, matricule: s.matricule, cnssNo: s.cnssNo})))}]);
+    $("#py-val", box).onclick = () => this.valider(sal, V, $("#py-date", box).value, $("#py-pay", box).value, box);
+  },
+  async valider(sal, V, date, payAcc, box) {
+    const per = PY.periode, P = S.paie;
+    if (!date) return toast("Indiquez la date de l'écriture de paie.", "bad");
+    const rows = sal.map(s => ({s, r: calcBulletin(s, V(s), P)})).filter(x => x.r.brut + x.r.exonerees > 0);
+    if (!rows.length) return toast("Aucun salaire à payer ce mois-ci.", "bad");
+    const neg = rows.find(x => x.r.net < 0); if (neg) return toast(`Net négatif pour ${neg.s.nom} : réduisez l'avance retenue.`, "bad");
+    const sum = k => rows.reduce((a, x) => a + x.r[k], 0);
+    const lib = `Paie de ${moisLabel(per)}`, L = [];
+    const add = (compte, d, c, l) => { if (d || c) L.push({compte, libelle: l, debit: d, credit: c}); };
+    add("661", sum("brut"), 0, "Salaires bruts, " + moisLabel(per));
+    add("663", sum("exonerees"), 0, "Indemnités non imposables, " + moisLabel(per));
+    add("6641", sum("patronal"), 0, "Charges patronales CNSS et ANPE");
+    add("431", 0, sum("cnssSal") + sum("patronal"), "Cotisations CNSS et ANPE à verser");
+    add("4472", 0, sum("its"), "ITS retenu à la source");
+    add("4478", 0, sum("eg"), "Retenue effort de guerre");
+    add("421", 0, sum("avance"), "Avances sur salaire récupérées");
+    add("422", 0, sum("net"), "Salaires nets à payer");
+    const t = L.reduce((a, l) => ({d: a.d + l.debit, c: a.c + l.credit}), {d: 0, c: 0});
+    if (r2(t.d - t.c) !== 0) return toast("Écriture de paie déséquilibrée : vérifiez les montants saisis.", "bad");
+    const now = new Date().toISOString();
+    const ent = [{id: "paie-" + per, date, journal: "PA", piece: "PA-" + per, libelle: lib, lignes: L, source: "paie", cree: now}];
+    if (payAcc) { const j = payAcc === "571" ? "CA" : "BQ"; ent.push({id: "paie-" + per + "-reg", date, journal: j, piece: `${j}-PAIE-${per}`, libelle: "Règlement des salaires de " + moisLabel(per),
+      lignes: [{compte: "422", libelle: "Règlement des salaires", debit: sum("net"), credit: 0}, {compte: payAcc, libelle: "Règlement des salaires", debit: 0, credit: sum("net")}], source: "paie", cree: now}); }
+    const bulls = rows.map(x => ({id: per + "_" + x.s.id, periode: per, salId: x.s.id, nom: x.s.nom, matricule: x.s.matricule || "", poste: x.s.poste || "", cnssNo: x.s.cnssNo || "", charges: x.s.charges | 0, ...x.r, ecriture: "paie-" + per, valide: now}));
+    const btn = $("#py-val", box); btn.disabled = true;
+    const ok = await guard(async () => { await Store.putMany("ecritures", ent); await Store.putMany("bulletins", bulls); }, `Paie de ${moisLabel(per)} validée : ${bulls.length} bulletin(s), écriture PA-${per}.`);
+    if (!ok) btn.disabled = false;
+  },
+  mountSal(box) {
+    const s = PY.edit ? S.salaries.find(x => x.id === PY.edit) || {} : {};
+    const v = k => esc(s[k] ?? "");
+    box.innerHTML = `<div class="card"><div class="card-h"><div><h2>${PY.edit ? "Modifier la fiche de " + esc(s.nom) : "Nouveau salarié"}</h2><p>Les montants fixes sont repris chaque mois ; vous les ajustez au moment de la paie.</p></div></div>
+      <div class="form-row">
+        <div class="field"><label for="ps-matricule">Matricule</label><input class="input mono" id="ps-matricule" value="${v("matricule")}"></div>
+        <div class="field" style="grid-column:span 2"><label for="ps-nom">Nom et prénom</label><input class="input" id="ps-nom" value="${v("nom")}"></div>
+        <div class="field"><label for="ps-poste">Emploi</label><input class="input" id="ps-poste" value="${v("poste")}" placeholder="Ex. Comptable"></div>
+        <div class="field"><label for="ps-cnssNo">N° CNSS</label><input class="input mono" id="ps-cnssNo" value="${v("cnssNo")}"></div>
+        <div class="field"><label for="ps-embauche">Date d'embauche</label><input class="input" type="date" id="ps-embauche" value="${v("embauche")}"></div>
+        <div class="field"><label for="ps-base">Salaire de base mensuel</label><input class="input num" id="ps-base" inputmode="decimal" value="${v("base")}"></div>
+        <div class="field"><label for="ps-primesCnss">Primes fixes soumises CNSS</label><input class="input num" id="ps-primesCnss" inputmode="decimal" value="${v("primesCnss")}" placeholder="Ancienneté, rendement"></div>
+        <div class="field"><label for="ps-primesImpo">Primes imposables hors CNSS</label><input class="input num" id="ps-primesImpo" inputmode="decimal" value="${v("primesImpo")}" placeholder="Transport, panier"></div>
+        <div class="field"><label for="ps-exonerees">Indemnités exonérées</label><input class="input num" id="ps-exonerees" inputmode="decimal" value="${v("exonerees")}" placeholder="Zone, frais de mission"></div>
+        <div class="field"><label for="ps-charges">Charges de famille</label><select class="input" id="ps-charges">${FAMILLE_LBL.map((l, i) => `<option value="${i}" ${(s.charges | 0) === i ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+        <div class="field"><label for="ps-cnss">Sécurité sociale</label><select class="input" id="ps-cnss"><option value="1">Immatriculé à la CNSS</option><option value="0" ${s.cnss === false ? "selected" : ""}>Non immatriculé</option></select></div>
+        <div class="field"><label for="ps-actif">Situation</label><select class="input" id="ps-actif"><option value="1">En activité</option><option value="0" ${s.actif === false ? "selected" : ""}>Sorti des effectifs</option></select></div>
+      </div>
+      <div class="btns" style="margin-top:14px;justify-content:flex-end">${PY.edit ? `<button class="btn" id="ps-cancel">Annuler</button>` : ""}<button class="btn primary" id="ps-save">${PY.edit ? "Enregistrer la fiche" : "Ajouter le salarié"}</button></div></div>
+      <div class="card" style="margin-top:14px"><div id="ps-list"></div></div>`;
+    const c = $("#ps-cancel", box); if (c) c.onclick = () => { PY.edit = null; this.mountSal(box); this.drawSal(box); };
+    $("#ps-save", box).onclick = async () => {
+      const g = k => $("#ps-" + k, box).value.trim(), n = k => Math.max(0, parseAmount(g(k)) || 0);
+      const d = {matricule: g("matricule"), nom: g("nom"), poste: g("poste"), cnssNo: g("cnssNo"), embauche: g("embauche"), base: n("base"), primesCnss: n("primesCnss"), primesImpo: n("primesImpo"), exonerees: n("exonerees"), charges: +g("charges"), cnss: g("cnss") === "1", actif: g("actif") === "1"};
+      if (!d.nom) return toast("Indiquez le nom du salarié.", "bad");
+      if (!d.base) return toast("Indiquez le salaire de base mensuel.", "bad");
+      if (d.base < (S.paie.plancher || 0)) toast(`Attention : salaire de base inférieur au SMIG (${fmt0(S.paie.plancher)} FCFA).`, "bad");
+      const id = PY.edit || "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      if (await guard(() => Store.putMany("salaries", [{id, ...d}]), PY.edit ? "Fiche enregistrée." : `${d.nom} ajouté(e) aux effectifs.`)) { PY.edit = null; this.mountSal(box); this.drawSal(box); }
+    };
+  },
+  drawSal(el) {
+    const box = $("#ps-list", el); if (!box) return;
+    const list = [...S.salaries].sort((a, b) => (a.nom || "").localeCompare(b.nom || ""));
+    if (!list.length) { box.innerHTML = emptyState("Aucun salarié enregistré", "Remplissez la fiche ci-dessus pour ajouter votre premier salarié."); return; }
+    box.innerHTML = `<div class="card-h"><h2>${list.filter(s => s.actif !== false).length} salarié(s) en activité</h2></div>
+      <div class="tbl-wrap"><table class="t"><thead><tr><th>Salarié</th><th>Emploi</th><th class="num">Salaire de base</th><th>Charges</th><th>CNSS</th><th>Situation</th><th></th></tr></thead><tbody>
+      ${list.map(s => { const has = S.bulletins.some(b => b.salId === s.id); return `<tr><td><b>${esc(s.nom)}</b><div class="acc-lbl">${esc(s.matricule || "")}</div></td><td>${esc(s.poste || "")}</td><td class="num">${fmt0(s.base)}</td><td>${s.charges | 0}</td><td>${s.cnss === false ? '<span class="pill">Non</span>' : '<span class="pill accent">Oui</span>'}</td><td>${s.actif === false ? '<span class="pill">Sorti</span>' : '<span class="pill good">Actif</span>'}</td>
+        <td><div class="btns" style="flex-wrap:nowrap"><button class="btn sm" data-ed="${esc(s.id)}">Modifier</button>${has ? "" : `<button class="btn sm danger" data-rm="${esc(s.id)}">Supprimer</button>`}</div></td></tr>`; }).join("")}
+      </tbody></table></div><p class="note" style="margin-top:8px">Un salarié qui a déjà des bulletins ne peut pas être supprimé : passez-le en « Sorti des effectifs ».</p>`;
+    $$("[data-ed]", box).forEach(b => b.onclick = () => { PY.edit = b.dataset.ed; const t = $("#py-tab"); this.mountSal(t); this.drawSal(t); t.scrollIntoView({behavior: "smooth"}); });
+    $$("[data-rm]", box).forEach(b => armDelete(b, () => guard(() => Store.delMany("salaries", [b.dataset.rm]), "Salarié supprimé.")));
+  },
+  mountParams(box) {
+    const P = S.paie;
+    const num = (k, l) => `<div class="field"><label for="pp-${k}">${l}</label><input class="input num" id="pp-${k}" inputmode="decimal" value="${String(P[k]).replace(".", ",")}"></div>`;
+    box.innerHTML = `<div class="card"><div class="card-h"><div><h2>Paramètres de paie</h2><p>Valeurs du Niger préremplies. Vérifiez-les à chaque loi de finances et à chaque révision des taux CNSS.</p></div></div>
+      <h3 style="margin:4px 0 8px">Cotisations sociales</h3>
+      <div class="form-row">${num("cnssSal", "CNSS salarié (%)")}${num("empPension", "Pension, part patronale (%)")}${num("empPF", "Prestations familiales (%)")}${num("empAT", "Accidents du travail (%)")}${num("anpe", "ANPE (%)")}${num("plafond", "Plafond mensuel CNSS")}${num("plancher", "Base minimale (SMIG)")}</div>
+      <h3 style="margin:18px 0 8px">Impôt sur les traitements et salaires</h3>
+      <div class="form-row">${num("fp", "Frais professionnels (%)")}${num("cnssMaxRbp", "Abattement CNSS plafonné à (% du salaire de base)")}${num("effort", "Effort de guerre (%)")}
+        <div class="field"><label for="pp-effortOn">Retenue effort de guerre</label><select class="input" id="pp-effortOn"><option value="1">Appliquée</option><option value="0" ${P.effortOn ? "" : "selected"}>Non appliquée</option></select></div></div>
+      <div class="grid g2" style="margin-top:16px">
+        <div><h3 style="margin-bottom:8px">Barème mensuel appliqué au RNI</h3><div class="tbl-wrap"><table class="t lines"><thead><tr><th>Tranche jusqu'à (FCFA)</th><th class="num">Taux (%)</th></tr></thead><tbody>
+          ${P.bareme.map((t, i) => `<tr><td><input class="input num" data-bm="${i}" value="${t.max || ""}" placeholder="Au-delà" aria-label="Plafond de la tranche ${i + 1}"></td><td><input class="input num" data-bt="${i}" value="${String(t.taux).replace(".", ",")}" aria-label="Taux de la tranche ${i + 1}"></td></tr>`).join("")}</tbody></table></div></div>
+        <div><h3 style="margin-bottom:8px">Abattement pour charges de famille</h3><div class="tbl-wrap"><table class="t lines"><thead><tr><th>Situation</th><th class="num">Taux (%)</th></tr></thead><tbody>
+          ${P.famille.map((t, i) => `<tr><td>${FAMILLE_LBL[i]}</td><td><input class="input num" data-fa="${i}" value="${String(t).replace(".", ",")}" aria-label="Taux pour ${FAMILLE_LBL[i]}"></td></tr>`).join("")}</tbody></table></div></div>
+      </div>
+      <p class="note" style="margin-top:12px">Sources des valeurs par défaut : barème ITS, frais professionnels de 13 %, charges de famille et retenue d'effort de guerre d'après nigercompta.com (Code général des impôts du Niger) ; taux CNSS et ANPE d'après le CLEISS (au 1er janvier 2024) ; base minimale alignée sur le SMIG de 42 000 FCFA (2026). Le taux accidents du travail dépend de la classe de risque de l'entreprise.</p>
+      <div class="btns" style="margin-top:14px;justify-content:flex-end"><button class="btn" id="pp-reset">Rétablir les valeurs par défaut</button><button class="btn primary" id="pp-save">Enregistrer les paramètres</button></div></div>`;
+    $("#pp-reset", box).onclick = async () => { if (await guard(() => Store.putPaie({...DEF_PAIE}), "Valeurs par défaut rétablies.")) setTimeout(() => this.mountParams(box), 50); };
+    $("#pp-save", box).onclick = () => {
+      const n = id => parseAmount($("#" + id, box).value);
+      const p = {}; for (const k of ["cnssSal", "empPension", "empPF", "empAT", "anpe", "plafond", "plancher", "fp", "cnssMaxRbp", "effort"]) { const x = n("pp-" + k); if (x === null || x < 0) return toast("Valeur invalide : " + $(`label[for="pp-${k}"]`, box).textContent, "bad"); p[k] = x; }
+      p.effortOn = $("#pp-effortOn", box).value === "1";
+      p.bareme = P.bareme.map((_, i) => ({max: parseAmount($(`[data-bm="${i}"]`, box).value) || 0, taux: parseAmount($(`[data-bt="${i}"]`, box).value) || 0}));
+      const maxes = p.bareme.slice(0, -1).map(t => t.max);
+      if (maxes.some((m, i) => !m || (i && m <= maxes[i - 1]))) return toast("Les plafonds des tranches doivent être croissants ; seule la dernière tranche reste sans plafond.", "bad");
+      p.bareme[p.bareme.length - 1].max = 0;
+      p.famille = P.famille.map((_, i) => parseAmount($(`[data-fa="${i}"]`, box).value) || 0);
+      guard(() => Store.putPaie(p), "Paramètres de paie enregistrés.");
+    };
   }
 };
 
