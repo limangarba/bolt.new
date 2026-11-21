@@ -398,7 +398,10 @@ PLAN_TXT.split("\n").forEach(l => { const [n, lib] = l.split("|"); PLAN[n] = lib
 const CLASSES = {1:"Comptes de ressources durables",2:"Comptes d'actif immobilisé",3:"Comptes de stocks",4:"Comptes de tiers",5:"Comptes de trésorerie",6:"Comptes de charges",7:"Comptes de produits",8:"Comptes des autres charges et produits",9:"Comptabilité analytique"};
 const JOURNAUX = {AC:"Achats",VE:"Ventes",BQ:"Banque",CA:"Caisse",OD:"Opérations diverses",PA:"Paie",AN:"À-nouveaux"};
 const DEF_SOC = (() => { const y = new Date().getFullYear(); return {raison:"",nif:"",rccm:"",adresse:"",regime:"RNI",debut:`${y}-01-01`,fin:`${y}-12-31`,tva:19}; })();
-const DEF_PAIE = {cnssSal: 5.25, empPension: 6.25, empPF: 8.4, empAT: 1.75, anpe: 1, plafond: 500000, plancher: 42000, fp: 13, cnssMaxRbp: 6, effort: 1, effortOn: true,
+// Taux CNSS : communiqué CNSS du 1er juillet 2023 (décret n° 2023-449/PRN/MET/PS) ; ANPE : décret n° 2002-277 ;
+// FSSP : ordonnance n° 2025-35 du 22 octobre 2025 ; heures sup. et ancienneté : CCI 2022, art. 51 et 54.
+const DEF_PAIE = {cnssSal: 5.25, empPension: 9.75, empPF: 4.9, empAT: 1.75, anpe: 0.5, plafond: 500000, plancher: 42000, fp: 13, cnssMaxRbp: 6, effort: 1, effortOn: true,
+  heuresMois: 173.33, hs1: 25, hs2: 35, hs3: 50, hs4: 100, ancDebut: 3, ancTaux: 3, ancParAn: 1, ancMax: 25, ancOn: true, fsspOng: 0,
   bareme: [{max: 25000, taux: 1}, {max: 50000, taux: 2}, {max: 100000, taux: 6}, {max: 150000, taux: 13}, {max: 300000, taux: 25}, {max: 400000, taux: 30}, {max: 700000, taux: 32}, {max: 1000000, taux: 34}, {max: 0, taux: 35}],
   famille: [0, 7, 12, 17, 22, 25, 27, 30]};
 const FAMILLE_LBL = ["Aucune charge", "1 charge", "2 charges", "3 charges", "4 charges", "5 charges", "6 charges", "7 charges (conjoint et 6 enfants)"];
@@ -1692,8 +1695,22 @@ VIEWS.lettrage = {
 function moisLabel(p) { const [y, m] = p.split("-"); return ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"][+m - 1] + " " + y; }
 function lastDay(p) { const [y, m] = p.split("-").map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); }
 const rnd = n => Math.round(n);
-function calcBulletin(s, v, P) {
-  const base = +v.base || 0, primesCnss = +v.primesCnss || 0, primesImpo = +v.primesImpo || 0, exonerees = +v.exonerees || 0, avance = +v.avance || 0;
+function anciennete(embauche, per) {
+  if (!embauche || !per) return 0;
+  const [y1, m1, d1] = embauche.split("-").map(Number), [y2, m2, d2] = lastDay(per).split("-").map(Number);
+  let a = y2 - y1; if (m2 < m1 || (m2 === m1 && d2 < d1)) a--;
+  return Math.max(0, a);
+}
+function calcBulletin(s, v, P, per) {
+  const base = +v.base || 0, primesCnss0 = +v.primesCnss || 0, primesImpo = +v.primesImpo || 0, exonerees = +v.exonerees || 0, avance = +v.avance || 0;
+  const ans = anciennete(s.embauche, per || v.periode);
+  const tauxAnc = P.ancOn && ans >= P.ancDebut ? P.ancTaux + (Math.min(ans, P.ancMax) - P.ancDebut) * P.ancParAn : 0;
+  const primeAnc = rnd(base * tauxAnc / 100);
+  const th = P.heuresMois ? base / P.heuresMois : 0;
+  const hsH = [+v.hs1 || 0, +v.hs2 || 0, +v.hs3 || 0, +v.hs4 || 0], hsT = [P.hs1, P.hs2, P.hs3, P.hs4];
+  const hsMontants = hsH.map((h, i) => rnd(th * h * (1 + hsT[i] / 100)));
+  const heuresSup = hsMontants.reduce((a, b) => a + b, 0);
+  const primesCnss = primesCnss0 + primeAnc + heuresSup;             // ancienneté et heures sup. sont des salaires soumis
   const brut = base + primesCnss + primesImpo;                       // revenu brut global imposable
   const brutCnss = base + primesCnss;
   const baseCnss = s.cnss !== false && brutCnss > 0 ? Math.min(Math.max(brutCnss, P.plancher || 0), P.plafond || Infinity) : 0;
@@ -1710,19 +1727,20 @@ function calcBulletin(s, v, P) {
   const eg = P.effortOn ? rnd(netAvant * P.effort / 100) : 0;
   const net = netAvant - eg - avance;
   const empCnss = rnd(baseCnss * (P.empPension + P.empPF + P.empAT) / 100), anpe = rnd(baseCnss * P.anpe / 100);
-  return {base, primesCnss, primesImpo, exonerees, avance, brut, baseCnss, cnssSal, abatCnss, fp, ri, tauxFam, fam, rni, its, eg, net, empCnss, anpe,
+  return {base, primesFixes: primesCnss0, ans, tauxAnc, primeAnc, th: r2(th), hsH, hsT, hsMontants, heuresSup, primesCnss, primesImpo, exonerees, avance, brut, baseCnss, cnssSal, abatCnss, fp, ri, tauxFam, fam, rni, its, eg, net, empCnss, anpe,
     patronal: empCnss + anpe, cout: brut + exonerees + empCnss + anpe, tauxCnss: P.cnssSal, tauxEg: P.effortOn ? P.effort : 0, tauxPat: r2(P.empPension + P.empPF + P.empAT), tauxAnpe: P.anpe, tauxFp: P.fp};
 }
 function detailHtml(r) {
   const row = (a, b) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:2px 0;border-bottom:1px dotted var(--line)"><span>${a}</span><b class="acc">${fmt0(b)}</b></div>`;
-  return `<div class="grid g3" style="font-size:.82rem;gap:2px 28px;padding:4px 0;position:sticky;left:0;width:min(900px,calc(100vw - 80px))">${row("Revenu brut imposable", r.brut)}${row("Base CNSS retenue", r.baseCnss)}${row("Abattement CNSS", -r.abatCnss)}
+  return `<div class="grid g3" style="font-size:.82rem;gap:2px 28px;padding:4px 0">${row(`Prime d'ancienneté (${r.ans} an${r.ans > 1 ? "s" : ""}, ${r.tauxAnc} %)`, r.primeAnc)}${row(`Heures supplémentaires (taux horaire ${fmt0(r.th)})`, r.heuresSup)}${row("Revenu brut imposable", r.brut)}${row("Base CNSS retenue", r.baseCnss)}${row("Abattement CNSS", -r.abatCnss)}
     ${row(`Frais professionnels ${String(r.tauxFp).replace(".", ",")} %`, -r.fp)}${row("Revenu imposable arrondi", r.ri)}${row(`Charges de famille ${r.tauxFam} %`, -r.fam)}
-    ${row("Revenu net imposable", r.rni)}${row("ITS du mois", r.its)}${row("Effort de guerre", r.eg)}
+    ${row("Revenu net imposable", r.rni)}${row("ITS du mois", r.its)}${row("Prélèvement FSSP", r.eg)}
     ${row(`CNSS patronale ${String(r.tauxPat).replace(".", ",")} %`, r.empCnss)}${row(`ANPE ${String(r.tauxAnpe).replace(".", ",")} %`, r.anpe)}${row("Coût total employeur", r.cout)}</div>`;
 }
 function livreRows(list) {
-  const H = ["Matricule", "Nom", "N° CNSS", "Salaire de base", "Primes soumises CNSS", "Autres primes imposables", "Indemnités exonérées", "Brut imposable", "Base CNSS", "CNSS salarié", "Revenu imposable", "Abattement famille", "RNI", "ITS", "Effort de guerre", "Avance", "Net à payer", "CNSS patronale", "ANPE", "Coût employeur"];
-  const K = ["base", "primesCnss", "primesImpo", "exonerees", "brut", "baseCnss", "cnssSal", "ri", "fam", "rni", "its", "eg", "avance", "net", "empCnss", "anpe", "cout"];
+  const H = ["Matricule", "Nom", "N° CNSS", "Salaire de base", "Prime d'ancienneté", "Heures supplémentaires", "Autres primes soumises CNSS", "Primes imposables hors CNSS", "Indemnités exonérées", "Brut imposable", "Base CNSS", "CNSS salarié", "Revenu imposable", "Abattement famille", "RNI", "ITS", "Prélèvement FSSP", "Avance", "Net à payer", "CNSS patronale", "ANPE", "Coût employeur"];
+  list.forEach(b => { if (b.primesFixes === undefined) b.primesFixes = b.primesCnss; });
+  const K = ["base", "primeAnc", "heuresSup", "primesFixes", "primesImpo", "exonerees", "brut", "baseCnss", "cnssSal", "ri", "fam", "rni", "its", "eg", "avance", "net", "empCnss", "anpe", "cout"];
   const rows = [H, ...list.map(b => [b.matricule || "", b.nom, b.cnssNo || "", ...K.map(k => b[k] || 0)])];
   rows.push(["", "TOTAL", "", ...K.map(k => list.reduce((s, b) => s + (b[k] || 0), 0))]);
   return rows;
@@ -1751,19 +1769,22 @@ async function bulletinPdf(b) {
     doc.setFillColor(230, 236, 240); doc.rect(13, y - 4.5, 184, 7, "F");
     line(["Rubrique", "Base", "Taux", "Gains", "Retenues"], true); doc.line(13, y - 3.5, 197, y - 3.5);
     line(["Salaire de base", "", "", f(b.base), ""]);
-    if (b.primesCnss) line(["Primes soumises à cotisation", "", "", f(b.primesCnss), ""]);
+    if (b.primeAnc) line([`Prime d'ancienneté (${b.ans} ans)`, f(b.base), pct(b.tauxAnc), f(b.primeAnc), ""]);
+    (b.hsH || []).forEach((h, i) => { if (h) line([`Heures supplémentaires majorées de ${b.hsT[i]} % (${String(h).replace(".", ",")} h)`, f(b.th), "", f(b.hsMontants[i]), ""]); });
+    const fixes = b.primesFixes ?? b.primesCnss;
+    if (fixes) line(["Primes soumises à cotisation", "", "", f(fixes), ""]);
     if (b.primesImpo) line(["Autres primes imposables", "", "", f(b.primesImpo), ""]);
     if (b.exonerees) line(["Indemnités non imposables", "", "", f(b.exonerees), ""]);
     line(["Cotisation CNSS salarié", f(b.baseCnss), pct(b.tauxCnss), "", f(b.cnssSal)]);
     line(["Impôt sur les traitements et salaires (ITS)", f(b.rni), "barème", "", f(b.its)]);
-    if (b.eg) line(["Retenue effort de guerre", "", pct(b.tauxEg), "", f(b.eg)]);
+    if (b.eg) line(["Prélèvement FSSP (ord. 2025-35)", "", pct(b.tauxEg), "", f(b.eg)]);
     if (b.avance) line(["Avance sur salaire", "", "", "", f(b.avance)]);
     doc.line(13, y - 3.5, 197, y - 3.5);
     line(["Totaux", "", "", f(b.brut + b.exonerees), f(b.cnssSal + b.its + b.eg + b.avance)], true);
     y += 2; doc.setFillColor(14, 107, 99); doc.rect(120, y - 5, 77, 9, "F"); doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text("NET À PAYER", 124, y + 1); doc.text(f(b.net) + " FCFA", 194, y + 1, {align: "right"});
     doc.setTextColor(0, 0, 0); doc.setFontSize(9); doc.setFont("helvetica", "normal"); y += 14;
-    doc.text(`Détail ITS : revenu brut ${f(b.brut)} - CNSS ${f(b.abatCnss)} - frais professionnels ${f(b.fp)} = revenu imposable arrondi ${f(b.ri)} ; charges de famille ${b.tauxFam} % : ${f(b.fam)} ; RNI ${f(b.rni)}.`, 15, y, {maxWidth: 182}); y += 10;
+    doc.text(`Détail ITS : revenu brut ${f(b.brut)} - CNSS ${f(b.abatCnss)} - frais professionnels ${f(b.fp)} = revenu imposable arrondi ${f(b.ri)} ; charges de famille ${b.tauxFam} % : ${f(b.fam) || "0"} ; RNI ${f(b.rni)}.`, 15, y, {maxWidth: 182}); y += 10;
     doc.text(`Charges patronales (pour information) : CNSS ${pct(b.tauxPat)} = ${f(b.empCnss)} ; ANPE ${pct(b.tauxAnpe)} = ${f(b.anpe)} ; coût total employeur ${f(b.cout)} FCFA.`, 15, y, {maxWidth: 182}); y += 16;
     doc.text("Signature de l'employeur", 15, y); doc.text("Signature du salarié", 140, y);
     doc.setFontSize(7.5); doc.setTextColor(110, 110, 110); doc.text("Document établi avec SmartCompta Exp. À conserver par le salarié.", 105, 287, {align: "center"});
@@ -1800,7 +1821,7 @@ VIEWS.paie = {
     if (done.length) {
       box.innerHTML = `<div class="card"><div class="card-h"><div><h2>Paie de ${moisLabel(per)} <span class="pill good">Validée</span></h2><p>Comptabilisée au journal PA, pièce PA-${per}.</p></div>
         <div class="btns"><button class="btn sm" id="py-xls">Livre de paie (Excel)</button><button class="btn sm" id="py-decl">État CNSS et ITS (Excel)</button><button class="btn sm danger" id="py-cancel">Annuler cette paie</button></div></div>
-        <div class="tbl-wrap"><table class="t"><thead><tr><th>Salarié</th><th class="num">Brut</th><th class="num">CNSS</th><th class="num">ITS</th><th class="num">Effort de guerre</th><th class="num">Avance</th><th class="num">Net à payer</th><th class="num">Charges patronales</th><th></th></tr></thead><tbody>
+        <div class="tbl-wrap"><table class="t"><thead><tr><th>Salarié</th><th class="num">Brut</th><th class="num">CNSS</th><th class="num">ITS</th><th class="num">FSSP</th><th class="num">Avance</th><th class="num">Net à payer</th><th class="num">Charges patronales</th><th></th></tr></thead><tbody>
         ${done.map(b => `<tr><td><b>${esc(b.nom)}</b><div class="acc-lbl">${esc(b.matricule)}</div></td><td class="num">${fmt0(b.brut + b.exonerees)}</td><td class="num">${fmt0(b.cnssSal)}</td><td class="num">${fmt0(b.its)}</td><td class="num">${fmt0(b.eg)}</td><td class="num">${fmt(b.avance)}</td><td class="num"><b>${fmt0(b.net)}</b></td><td class="num">${fmt0(b.patronal)}</td><td><button class="btn sm" data-pdf="${esc(b.id)}">Bulletin PDF</button></td></tr>`).join("")}
         <tr class="tot"><td>Totaux</td>${["brut", "cnssSal", "its", "eg", "avance", "net", "patronal"].map(k => `<td class="num">${fmt0(k === "brut" ? sumOf(done, "brut") + sumOf(done, "exonerees") : sumOf(done, k))}</td>`).join("")}<td></td></tr></tbody></table></div></div>`;
       $$("[data-pdf]", box).forEach(b => b.onclick = () => bulletinPdf(done.find(x => x.id === b.dataset.pdf)));
@@ -1809,7 +1830,7 @@ VIEWS.paie = {
         const cnss = [["Matricule", "Nom", "N° CNSS", "Salaire brut soumis", "Base plafonnée", "Part salariale", "Part patronale", "ANPE", "Total à verser"]];
         done.forEach(b => cnss.push([b.matricule, b.nom, b.cnssNo, b.base + b.primesCnss, b.baseCnss, b.cnssSal, b.empCnss, b.anpe, b.cnssSal + b.empCnss + b.anpe]));
         cnss.push(["", "TOTAL", "", sumOf(done, "base") + sumOf(done, "primesCnss"), sumOf(done, "baseCnss"), sumOf(done, "cnssSal"), sumOf(done, "empCnss"), sumOf(done, "anpe"), sumOf(done, "cnssSal") + sumOf(done, "empCnss") + sumOf(done, "anpe")]);
-        const its = [["Matricule", "Nom", "Brut imposable", "Revenu imposable", "Charges", "RNI", "ITS retenu", "Effort de guerre"]];
+        const its = [["Matricule", "Nom", "Brut imposable", "Revenu imposable", "Charges", "RNI", "ITS retenu", "Prélèvement FSSP"]];
         done.forEach(b => its.push([b.matricule, b.nom, b.brut, b.ri, b.charges, b.rni, b.its, b.eg]));
         its.push(["", "TOTAL", sumOf(done, "brut"), sumOf(done, "ri"), "", sumOf(done, "rni"), sumOf(done, "its"), sumOf(done, "eg")]);
         exportXlsx(`etat-cnss-its-${per}.xlsx`, [{name: "CNSS", rows: cnss}, {name: "ITS", rows: its}]);
@@ -1829,44 +1850,48 @@ VIEWS.paie = {
       $("#py-gosal", box).onclick = () => { PY.tab = "salaries"; this.mountTab(el); this.update(el); };
       return;
     }
-    sal.forEach(s => { if (!PY.vars[per + s.id]) PY.vars[per + s.id] = {base: s.base || 0, primesCnss: s.primesCnss || 0, primesImpo: s.primesImpo || 0, exonerees: s.exonerees || 0, avance: 0}; });
+    sal.forEach(s => { if (!PY.vars[per + s.id]) PY.vars[per + s.id] = {base: s.base || 0, primesCnss: s.primesCnss || 0, primesImpo: s.primesImpo || 0, exonerees: s.exonerees || 0, avance: 0, hs1: 0, hs2: 0, hs3: 0, hs4: 0}; });
     const V = s => PY.vars[per + s.id];
     const IN = [["base", "Salaire de base"], ["primesCnss", "Primes soumises CNSS"], ["primesImpo", "Autres primes imposables"], ["exonerees", "Indemnités exonérées"], ["avance", "Avance à retenir"]];
-    const OUT = [["brut", "Brut imposable"], ["cnssSal", "CNSS salarié"], ["its", "ITS"], ["eg", "Effort de guerre"], ["net", "Net à payer"], ["patronal", "Charges patronales"]];
+    const OUT = [["brut", "Brut imposable"], ["cnssSal", "CNSS salarié"], ["its", "ITS"], ["eg", "FSSP 1 %"], ["net", "Net à payer"], ["patronal", "Charges patronales"]];
+    const HS = [["hs1", P.hs1, "41e à 48e heure"], ["hs2", P.hs2, "au-delà de la 48e"], ["hs3", P.hs3, "jour de repos ou férié, de jour"], ["hs4", P.hs4, "jour de repos ou férié, de nuit"]];
     box.innerHTML = `<div class="card"><div class="card-h"><div><h2>Paie de ${moisLabel(per)} <span class="pill ochre">À valider</span></h2><p>Montants préremplis depuis la fiche de chaque salarié. Ajustez primes et avances du mois, puis validez.</p></div></div>
       <div class="tbl-wrap"><table class="t lines"><thead><tr><th>Salarié</th>${IN.map(([, l]) => `<th class="num">${l}</th>`).join("")}${OUT.map(([, l]) => `<th class="num">${l}</th>`).join("")}<th></th></tr></thead><tbody>
       ${sal.map(s => `<tr data-s="${esc(s.id)}"><td style="min-width:150px"><b>${esc(s.nom)}</b><div class="acc-lbl">${esc(s.matricule || "")}${s.matricule ? " · " : ""}${FAMILLE_LBL[s.charges | 0]}${s.cnss === false ? " · non immatriculé" : ""}</div></td>
         ${IN.map(([k, l]) => `<td><input class="input num" style="min-width:100px" inputmode="decimal" data-k="${k}" value="${V(s)[k] || ""}" aria-label="${l}, ${esc(s.nom)}"></td>`).join("")}
         ${OUT.map(([k]) => `<td class="num" data-o="${k}" style="padding-top:12px${k === "net" ? ";font-weight:600" : ""}"></td>`).join("")}
         <td><button class="btn sm" data-det="${esc(s.id)}">Détail</button></td></tr>
-        <tr data-dr="${esc(s.id)}" hidden><td colspan="${2 + IN.length + OUT.length}"></td></tr>`).join("")}
+        <tr data-dr="${esc(s.id)}" hidden><td colspan="${2 + IN.length + OUT.length}"><div style="position:sticky;left:0;width:min(900px,calc(100vw - 80px));display:flex;flex-direction:column;gap:10px">
+          <div><div class="note" style="margin-bottom:6px">Heures supplémentaires du mois (CCI 2022, art. 51) · ancienneté calculée depuis l'embauche${s.embauche ? " du " + fmtDate(s.embauche) : " : date d'embauche non renseignée"}</div>
+          <div class="form-row" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${HS.map(([k, t, l]) => `<div class="field"><label>+${String(t).replace(".", ",")} % · ${l}</label><input class="input num" inputmode="decimal" data-k="${k}" value="${V(s)[k] || ""}" placeholder="0 h" aria-label="Heures majorées de ${t} %, ${esc(s.nom)}"></div>`).join("")}</div></div>
+          <div class="calc"></div></div></td></tr>`).join("")}
       <tr class="tot"><td>Totaux</td><td colspan="${IN.length}"></td>${OUT.map(([k]) => `<td class="num" data-tt="${k}"></td>`).join("")}<td></td></tr></tbody></table></div>
       <div class="form-row" style="margin-top:14px">
         <div class="field"><label for="py-date">Date de l'écriture de paie</label><input class="input" type="date" id="py-date" value="${lastDay(per)}"></div>
         <div class="field"><label for="py-pay">Écriture de règlement des salaires</label><select class="input" id="py-pay"><option value="">Ne pas générer</option><option value="521">Virement bancaire (521)</option><option value="571">Espèces (571)</option></select></div>
       </div>
-      <p class="note" style="margin-top:10px">La validation enregistre un bulletin par salarié et passe l'écriture au journal PA : 661 et 663 au débit, 6641 pour les charges patronales, 431 (CNSS et ANPE), 4472 (ITS), 4478 (effort de guerre), 421 (avances) et 422 (net à payer) au crédit.</p>
+      <p class="note" style="margin-top:10px">La validation enregistre un bulletin par salarié et passe l'écriture au journal PA : 661 et 663 au débit, 6641 pour les charges patronales, 431 (CNSS et ANPE), 4472 (ITS), 4478 (FSSP), 421 (avances) et 422 (net à payer) au crédit${P.fsspOng ? `, plus la contribution FSSP forfaitaire de ${fmt0(P.fsspOng)} FCFA (658 / 449)` : ""}. Le bouton « Détail » ouvre la saisie des heures supplémentaires.</p>
       <div class="btns" style="margin-top:14px;justify-content:flex-end"><button class="btn" id="py-xls">Livre de paie provisoire (Excel)</button><button class="btn primary" id="py-val">Valider la paie de ${moisLabel(per)}</button></div></div>`;
     const recalc = () => {
       const T = {}; OUT.forEach(([k]) => T[k] = 0);
       sal.forEach(s => {
-        const r = calcBulletin(s, V(s), P), tr = box.querySelector(`tr[data-s="${CSS.escape(s.id)}"]`);
+        const r = calcBulletin(s, V(s), P, per), tr = box.querySelector(`tr[data-s="${CSS.escape(s.id)}"]`);
         OUT.forEach(([k]) => { T[k] += r[k]; tr.querySelector(`[data-o="${k}"]`).textContent = fmt0(r[k]); });
         tr.querySelector('[data-o="net"]').style.color = r.net < 0 ? "var(--bad)" : "";
-        const dr = box.querySelector(`tr[data-dr="${CSS.escape(s.id)}"]`); if (!dr.hidden) dr.firstElementChild.innerHTML = detailHtml(r);
+        const dr = box.querySelector(`tr[data-dr="${CSS.escape(s.id)}"]`); if (!dr.hidden) dr.querySelector(".calc").innerHTML = detailHtml(r);
       });
       OUT.forEach(([k]) => { box.querySelector(`[data-tt="${k}"]`).textContent = fmt0(T[k]); });
     };
-    $$("tr[data-s] input", box).forEach(inp => inp.addEventListener("input", () => { PY.vars[per + inp.closest("tr").dataset.s][inp.dataset.k] = Math.max(0, parseAmount(inp.value) || 0); recalc(); }));
+    $$("tr[data-s] input, tr[data-dr] input", box).forEach(inp => inp.addEventListener("input", () => { const tr = inp.closest("tr"); PY.vars[per + (tr.dataset.s || tr.dataset.dr)][inp.dataset.k] = Math.max(0, parseAmount(inp.value) || 0); recalc(); }));
     $$("[data-det]", box).forEach(b => b.onclick = () => { const dr = box.querySelector(`tr[data-dr="${CSS.escape(b.dataset.det)}"]`); dr.hidden = !dr.hidden; b.textContent = dr.hidden ? "Détail" : "Masquer"; recalc(); });
     recalc();
-    $("#py-xls", box).onclick = () => exportXlsx(`livre-de-paie-${per}-provisoire.xlsx`, [{name: "Livre de paie", rows: livreRows(sal.map(s => ({...calcBulletin(s, V(s), P), nom: s.nom, matricule: s.matricule, cnssNo: s.cnssNo})))}]);
+    $("#py-xls", box).onclick = () => exportXlsx(`livre-de-paie-${per}-provisoire.xlsx`, [{name: "Livre de paie", rows: livreRows(sal.map(s => ({...calcBulletin(s, V(s), P, per), nom: s.nom, matricule: s.matricule, cnssNo: s.cnssNo})))}]);
     $("#py-val", box).onclick = () => this.valider(sal, V, $("#py-date", box).value, $("#py-pay", box).value, box);
   },
   async valider(sal, V, date, payAcc, box) {
     const per = PY.periode, P = S.paie;
     if (!date) return toast("Indiquez la date de l'écriture de paie.", "bad");
-    const rows = sal.map(s => ({s, r: calcBulletin(s, V(s), P)})).filter(x => x.r.brut + x.r.exonerees > 0);
+    const rows = sal.map(s => ({s, r: calcBulletin(s, V(s), P, per)})).filter(x => x.r.brut + x.r.exonerees > 0);
     if (!rows.length) return toast("Aucun salaire à payer ce mois-ci.", "bad");
     const neg = rows.find(x => x.r.net < 0); if (neg) return toast(`Net négatif pour ${neg.s.nom} : réduisez l'avance retenue.`, "bad");
     const sum = k => rows.reduce((a, x) => a + x.r[k], 0);
@@ -1877,9 +1902,10 @@ VIEWS.paie = {
     add("6641", sum("patronal"), 0, "Charges patronales CNSS et ANPE");
     add("431", 0, sum("cnssSal") + sum("patronal"), "Cotisations CNSS et ANPE à verser");
     add("4472", 0, sum("its"), "ITS retenu à la source");
-    add("4478", 0, sum("eg"), "Retenue effort de guerre");
+    add("4478", 0, sum("eg"), "Prélèvement FSSP 1 % sur salaires nets");
     add("421", 0, sum("avance"), "Avances sur salaire récupérées");
     add("422", 0, sum("net"), "Salaires nets à payer");
+    if (P.fsspOng) { add("658", P.fsspOng, 0, "Contribution mensuelle FSSP (ONG et associations)"); add("449", 0, P.fsspOng, "Contribution mensuelle FSSP à verser"); }
     const t = L.reduce((a, l) => ({d: a.d + l.debit, c: a.c + l.credit}), {d: 0, c: 0});
     if (r2(t.d - t.c) !== 0) return toast("Écriture de paie déséquilibrée : vérifiez les montants saisis.", "bad");
     const now = new Date().toISOString();
@@ -1941,21 +1967,34 @@ VIEWS.paie = {
       <h3 style="margin:4px 0 8px">Cotisations sociales</h3>
       <div class="form-row">${num("cnssSal", "CNSS salarié (%)")}${num("empPension", "Pension, part patronale (%)")}${num("empPF", "Prestations familiales (%)")}${num("empAT", "Accidents du travail (%)")}${num("anpe", "ANPE (%)")}${num("plafond", "Plafond mensuel CNSS")}${num("plancher", "Base minimale (SMIG)")}</div>
       <h3 style="margin:18px 0 8px">Impôt sur les traitements et salaires</h3>
-      <div class="form-row">${num("fp", "Frais professionnels (%)")}${num("cnssMaxRbp", "Abattement CNSS plafonné à (% du salaire de base)")}${num("effort", "Effort de guerre (%)")}
-        <div class="field"><label for="pp-effortOn">Retenue effort de guerre</label><select class="input" id="pp-effortOn"><option value="1">Appliquée</option><option value="0" ${P.effortOn ? "" : "selected"}>Non appliquée</option></select></div></div>
+      <div class="form-row">${num("fp", "Frais professionnels (%)")}${num("cnssMaxRbp", "Abattement CNSS plafonné à (% du salaire de base)")}</div>
+      <h3 style="margin:18px 0 8px">Fonds de solidarité pour la sauvegarde de la patrie (FSSP)</h3>
+      <div class="form-row">${num("effort", "Prélèvement sur le salaire net (%)")}
+        <div class="field"><label for="pp-effortOn">Prélèvement sur salaires</label><select class="input" id="pp-effortOn"><option value="1">Appliqué</option><option value="0" ${P.effortOn ? "" : "selected"}>Non appliqué</option></select></div>
+        <div class="field"><label for="pp-fsspOng">Contribution mensuelle des ONG et associations</label><select class="input" id="pp-fsspOng">${[[0, "Non concerné (entreprise)"], [10000, "Petite ONG : 10 000 FCFA"], [20000, "ONG moyenne : 20 000 FCFA"], [100000, "Grande ONG : 100 000 FCFA"]].map(([v, l]) => `<option value="${v}" ${+P.fsspOng === v ? "selected" : ""}>${l}</option>`).join("")}</select></div></div>
+      <h3 style="margin:18px 0 8px">Heures supplémentaires et ancienneté (CCI 2022)</h3>
+      <div class="form-row">${num("heuresMois", "Heures mensuelles (40 h × 52 / 12)")}${num("hs1", "Majoration 41e à 48e heure (%)")}${num("hs2", "Au-delà de la 48e heure (%)")}${num("hs3", "Repos et fériés, de jour (%)")}${num("hs4", "Repos et fériés, de nuit (%)")}</div>
+      <div class="form-row" style="margin-top:12px">${num("ancDebut", "Prime d'ancienneté due après (années)")}${num("ancTaux", "Taux initial (%)")}${num("ancParAn", "Par année supplémentaire (%)")}${num("ancMax", "Jusqu'à l'année")}
+        <div class="field"><label for="pp-ancOn">Prime d'ancienneté</label><select class="input" id="pp-ancOn"><option value="1">Calculée automatiquement</option><option value="0" ${P.ancOn ? "" : "selected"}>Non calculée</option></select></div></div>
       <div class="grid g2" style="margin-top:16px">
         <div><h3 style="margin-bottom:8px">Barème mensuel appliqué au RNI</h3><div class="tbl-wrap"><table class="t lines"><thead><tr><th>Tranche jusqu'à (FCFA)</th><th class="num">Taux (%)</th></tr></thead><tbody>
           ${P.bareme.map((t, i) => `<tr><td><input class="input num" data-bm="${i}" value="${t.max || ""}" placeholder="Au-delà" aria-label="Plafond de la tranche ${i + 1}"></td><td><input class="input num" data-bt="${i}" value="${String(t.taux).replace(".", ",")}" aria-label="Taux de la tranche ${i + 1}"></td></tr>`).join("")}</tbody></table></div></div>
         <div><h3 style="margin-bottom:8px">Abattement pour charges de famille</h3><div class="tbl-wrap"><table class="t lines"><thead><tr><th>Situation</th><th class="num">Taux (%)</th></tr></thead><tbody>
           ${P.famille.map((t, i) => `<tr><td>${FAMILLE_LBL[i]}</td><td><input class="input num" data-fa="${i}" value="${String(t).replace(".", ",")}" aria-label="Taux pour ${FAMILLE_LBL[i]}"></td></tr>`).join("")}</tbody></table></div></div>
       </div>
-      <p class="note" style="margin-top:12px">Sources des valeurs par défaut : barème ITS, frais professionnels de 13 %, charges de famille et retenue d'effort de guerre d'après nigercompta.com (Code général des impôts du Niger) ; taux CNSS et ANPE d'après le CLEISS (au 1er janvier 2024) ; base minimale alignée sur le SMIG de 42 000 FCFA (2026). Le taux accidents du travail dépend de la classe de risque de l'entreprise.</p>
+      <div class="note" style="margin-top:14px;display:flex;flex-direction:column;gap:4px"><b>Sources des valeurs par défaut</b>
+        <span>CNSS : communiqué du Directeur général de la CNSS, taux applicables au 1er juillet 2023 (décret n° 2023-449/PRN/MET/PS du 25 mai 2023) : employeur 16,40 % (pensions 9,75 %, prestations familiales 4,90 %, accidents du travail 1,75 %), salarié 5,25 %, plafond 500 000 FCFA par mois (décret n° 2013-279) ; ANPE 0,5 % (décret n° 2002-277), recouvrée par la CNSS.</span>
+        <span>ITS : article 150 du CGI (ordonnance n° 2025-22), barème rétabli par la loi de finances 2026 (ordonnance n° 2025-44) ; abattements et charges de famille selon la méthode publiée par nigercompta.com.</span>
+        <span>FSSP : ordonnance n° 2025-35 du 22 octobre 2025, prélèvement de 1 % sur la rémunération mensuelle nette (public, parapublic, privé) et contribution mensuelle des ONG et associations nigériennes.</span>
+        <span>Heures supplémentaires : convention collective interprofessionnelle de 2022, art. 51 ; prime d'ancienneté : art. 54 (3 % après 3 ans, puis 1 % par an jusqu'à la 25e année). Base minimale : SMIG de 42 000 FCFA.</span></div>
       <div class="btns" style="margin-top:14px;justify-content:flex-end"><button class="btn" id="pp-reset">Rétablir les valeurs par défaut</button><button class="btn primary" id="pp-save">Enregistrer les paramètres</button></div></div>`;
     $("#pp-reset", box).onclick = async () => { if (await guard(() => Store.putPaie({...DEF_PAIE}), "Valeurs par défaut rétablies.")) setTimeout(() => this.mountParams(box), 50); };
     $("#pp-save", box).onclick = () => {
       const n = id => parseAmount($("#" + id, box).value);
-      const p = {}; for (const k of ["cnssSal", "empPension", "empPF", "empAT", "anpe", "plafond", "plancher", "fp", "cnssMaxRbp", "effort"]) { const x = n("pp-" + k); if (x === null || x < 0) return toast("Valeur invalide : " + $(`label[for="pp-${k}"]`, box).textContent, "bad"); p[k] = x; }
+      const p = {}; for (const k of ["cnssSal", "empPension", "empPF", "empAT", "anpe", "plafond", "plancher", "fp", "cnssMaxRbp", "effort", "heuresMois", "hs1", "hs2", "hs3", "hs4", "ancDebut", "ancTaux", "ancParAn", "ancMax"]) { const x = n("pp-" + k); if (x === null || x < 0) return toast("Valeur invalide : " + $(`label[for="pp-${k}"]`, box).textContent, "bad"); p[k] = x; }
       p.effortOn = $("#pp-effortOn", box).value === "1";
+      p.ancOn = $("#pp-ancOn", box).value === "1";
+      p.fsspOng = +$("#pp-fsspOng", box).value;
       p.bareme = P.bareme.map((_, i) => ({max: parseAmount($(`[data-bm="${i}"]`, box).value) || 0, taux: parseAmount($(`[data-bt="${i}"]`, box).value) || 0}));
       const maxes = p.bareme.slice(0, -1).map(t => t.max);
       if (maxes.some((m, i) => !m || (i && m <= maxes[i - 1]))) return toast("Les plafonds des tranches doivent être croissants ; seule la dernière tranche reste sans plafond.", "bad");
