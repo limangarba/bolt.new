@@ -501,7 +501,11 @@ function toast(msg, kind) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 4200);
 }
 const loaded = {};
+const LIB_GLOBAL = {};
 function loadScript(src) {
+  if (!Object.keys(LIB_GLOBAL).length) Object.assign(LIB_GLOBAL, {[XLSX_URL]: "XLSX", [PDF_URL]: "pdfjsLib", [PDFW_URL]: "pdfjsWorker", [JSPDF_URL]: "jspdf"});
+  if (LIB_GLOBAL[src] && window[LIB_GLOBAL[src]]) return Promise.resolve();
+  if (window.SMARTCOMPTA_OFFLINE) return Promise.reject(new Error("Module absent de la version hors ligne."));
   if (!loaded[src]) loaded[src] = new Promise((res, rej) => {
     const s = document.createElement("script"); s.src = src; s.onload = res;
     s.onerror = () => { delete loaded[src]; rej(new Error("Impossible de charger le module " + src.split("/").slice(-2).join("/"))); };
@@ -557,15 +561,22 @@ const Store = {
     db.collection("comptes").onSnapshot(snap => { const m = {}; snap.docs.forEach(d => { const x = d.data(); if (x && x.num) m[x.num] = x.lib; }); S.comptes = m; got.c = true; fillDatalist(); check(); }, onErr);
     db.doc("config/societe").onSnapshot(snap => { S.societe = {...DEF_SOC, ...(snap.exists ? snap.data() : {})}; got.s = true; check(); }, onErr);
   },
-  local() {
+  async local() {
     S.mode = "local";
-    try { const raw = localStorage.getItem(LS_KEY); if (raw) { const d = JSON.parse(raw); S.ecritures = d.ecritures || []; S.comptes = d.comptes || {}; S.societe = {...DEF_SOC, ...(d.societe || {})}; S.salaries = d.salaries || []; S.bulletins = d.bulletins || []; S.immos = d.immos || []; S.paie = {...DEF_PAIE, ...(d.paie || {})}; } } catch (e) {}
+    let d = null;
+    try { d = await IDB.get("dossier"); } catch (e) { S.idbOff = true; }
+    if (!d) { try { const raw = localStorage.getItem(LS_KEY); if (raw) d = JSON.parse(raw); } catch (e) {} }
+    if (d) applyData(d);
+    try { S.lastBackup = await IDB.get("lastBackup"); } catch (e) {}
     S.ready = true; fillDatalist(); refresh();
+    Backup.init();
   },
   persist() {
     if (S.mode !== "local") return;
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ecritures: S.ecritures, comptes: S.comptes, societe: S.societe, salaries: S.salaries, bulletins: S.bulletins, immos: S.immos, paie: S.paie})); }
-    catch (e) { toast("Ce navigateur refuse l'enregistrement local : exportez une sauvegarde.", "bad"); }
+    const snap = dossierData();
+    const fallback = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(snap)); } catch (e) { toast("Enregistrement local impossible : téléchargez tout de suite une sauvegarde (écran Dossier).", "bad"); } };
+    if (S.idbOff) fallback(); else IDB.set("dossier", snap).catch(() => { S.idbOff = true; fallback(); });
+    Backup.schedule();
   },
   async saveEntry(e) {
     const {id, ...body} = e;
@@ -628,6 +639,55 @@ function fillDatalist() {
   $("#dl-comptes").innerHTML = Object.keys(all).filter(k => k.length >= 3).sort().map(k => `<option value="${esc(k)}">${esc(all[k])}</option>`).join("");
 }
 
+function dossierData() { return {app: "SmartCompta Exp", version: 2, date: new Date().toISOString(), societe: S.societe, comptes: S.comptes, ecritures: S.ecritures, salaries: S.salaries, bulletins: S.bulletins, immos: S.immos, paie: S.paie}; }
+function applyData(d) {
+  S.ecritures = d.ecritures || []; S.comptes = d.comptes || {}; S.societe = {...DEF_SOC, ...(d.societe || {})};
+  S.salaries = d.salaries || []; S.bulletins = d.bulletins || []; S.immos = d.immos || []; S.paie = {...DEF_PAIE, ...(d.paie || {})};
+}
+const IDB = {
+  db: null,
+  open() {
+    if (this.db) return Promise.resolve(this.db);
+    return new Promise((res, rej) => {
+      try { const r = indexedDB.open("smartcompta-exp", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => { this.db = r.result; res(this.db); }; r.onerror = () => rej(r.error); }
+      catch (e) { rej(e); }
+    });
+  },
+  async get(k) { const db = await this.open(); return new Promise((res, rej) => { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+  async set(k, v) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction("kv", "readwrite"); tx.objectStore("kv").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); }); }
+};
+const markBackup = () => { S.lastBackup = new Date().toISOString(); IDB.set("lastBackup", S.lastBackup).catch(() => {}); };
+// Sauvegarde automatique : chaque modification est recopiée dans un fichier .json choisi par l'utilisateur (Edge et Chrome).
+const Backup = {
+  handle: null, state: "none", timer: null, last: null,
+  supported: () => typeof window.showSaveFilePicker === "function",
+  async init() {
+    if (!this.supported()) { this.state = "unsupported"; return; }
+    try { this.handle = await IDB.get("backupHandle"); } catch (e) {}
+    if (!this.handle) { this.state = "none"; return; }
+    let p = "denied"; try { p = await this.handle.queryPermission({mode: "readwrite"}); } catch (e) {}
+    this.state = p === "granted" ? "ok" : "paused"; refresh();
+  },
+  async choose() {
+    try {
+      const h = await window.showSaveFilePicker({suggestedName: `SmartCompta-${(S.societe.raison || "dossier").replace(/[^\w-]+/g, "_")}.json`, types: [{description: "Sauvegarde SmartCompta", accept: {"application/json": [".json"]}}]});
+      this.handle = h; await IDB.set("backupHandle", h); this.state = "ok"; await this.write();
+      toast("Sauvegarde automatique activée dans « " + h.name + " »."); refresh();
+    } catch (e) { if (e && e.name !== "AbortError") toast("Ce fichier ne peut pas servir de sauvegarde : choisissez-en un autre.", "bad"); }
+  },
+  async resume() {
+    if (!this.handle) return this.choose();
+    let p = "denied"; try { p = await this.handle.requestPermission({mode: "readwrite"}); } catch (e) {}
+    this.state = p === "granted" ? "ok" : "paused"; if (this.state === "ok") await this.write(); refresh();
+  },
+  schedule() { if (this.state !== "ok") return; clearTimeout(this.timer); this.timer = setTimeout(() => this.write(), 1200); },
+  async write() {
+    if (!this.handle || this.state !== "ok") return;
+    try { const w = await this.handle.createWritable(); await w.write(JSON.stringify(dossierData(), null, 1)); await w.close(); this.last = new Date(); markBackup(); renderStatus(); }
+    catch (e) { this.state = "paused"; refresh(); }
+  }
+};
+
 /* ============ Calculs comptables ============ */
 const exo = () => ({from: S.societe.debut || "", to: S.societe.fin || ""});
 const totalsOf = e => e.lignes.reduce((a, l) => ({d: a.d + (+l.debit || 0), c: a.c + (+l.credit || 0)}), {d: 0, c: 0});
@@ -689,7 +749,7 @@ function renderStatus() {
   el.lastElementChild.textContent =
     S.dbError ? "Dossier inaccessible" :
     S.mode === "db" ? (S.slow ? "Données injoignables pour l'instant" : S.ready ? "Dossier enregistré en ligne" : "Chargement du dossier…") :
-    S.mode === "local" ? "Enregistré sur cet appareil" : "Connexion…";
+    S.mode === "local" ? (Backup.state === "ok" ? "Enregistré sur cet ordinateur · sauvegarde automatique active" : Backup.state === "paused" ? "Enregistré sur cet ordinateur · sauvegarde automatique en pause" : "Enregistré sur cet ordinateur") : "Connexion…";
 }
 window.addEventListener("hashchange", go);
 
@@ -751,6 +811,8 @@ VIEWS.tableau = {
             ${treso < 0 ? `<div class="alert bad">Trésorerie négative : vérifiez les découverts (compte 56) ou une saisie inversée.</div>` : ""}
             ${(() => { const per = new Date().toISOString().slice(0, 7); return S.salaries.some(s => s.actif !== false) && !S.bulletins.some(b => b.periode === per) ? `<div class="alert">La paie de ${moisLabel(per)} n'est pas encore validée. <a href="#paie">Préparer la paie</a></div>` : ""; })()}
             ${(() => { const n = tiersAccounts().reduce((s, a) => s + a.nl, 0); return n ? `<div class="note">${n} ligne(s) de tiers non lettrée(s). <a href="#lettrage">Lettrer</a></div>` : ""; })()}
+            ${S.mode === "local" && Backup.state === "paused" ? `<div class="alert">La sauvegarde automatique est en pause. <a href="#societe">La reprendre</a></div>` : ""}
+            ${S.mode === "local" && Backup.state !== "ok" && Backup.state !== "paused" && (!S.lastBackup || Date.now() - Date.parse(S.lastBackup) > 7 * 864e5) ? `<div class="alert">Aucune sauvegarde depuis ${S.lastBackup ? "plus de 7 jours" : "l'installation"}. <a href="#societe">Activer la sauvegarde automatique ou télécharger une copie</a></div>` : ""}
             <div class="note">${S.ecritures.length} écriture(s) dans le dossier, toutes équilibrées à la saisie.</div>
           </div>
         </div>
@@ -1441,7 +1503,7 @@ VIEWS.import = {
       <p class="note" id="type-help" style="margin-top:10px"></p>
       <label class="drop" id="drop" for="file" style="margin-top:12px">
         <b>Déposez un fichier ici ou touchez pour le choisir</b>
-        <span class="fmts"><span class="pill accent">Excel .xlsx .xls</span><span class="pill accent">PDF</span><span class="pill accent">CSV</span><span class="pill accent">TXT</span><span class="pill accent">Photo de document</span></span>
+        <span class="fmts"><span class="pill accent">Excel .xlsx .xls</span><span class="pill accent">PDF</span><span class="pill accent">CSV</span><span class="pill accent">TXT</span>${HAS_CLAUDE ? '<span class="pill accent">Photo de document</span>' : ""}</span>
         <span class="note" id="file-name">Le fichier est lu sur votre appareil ; seules les écritures que vous validez sont enregistrées.</span>
       </label>
       <input type="file" id="file" accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt,.tsv,.prn,.png,.jpg,.jpeg,.webp" hidden>
@@ -1482,9 +1544,10 @@ VIEWS.import = {
       return;
     }
     if (IM.scanned || IM.images) {
-      box.innerHTML = `<div class="card" style="margin-top:14px"><div class="card-h"><div><h2>Document sans texte lisible</h2><p>${IM.images ? "C'est une photo." : "Ce PDF est une image scannée."} Claude peut recopier le tableau à votre place (connexion internet requise), puis vous vérifiez avant d'importer.</p></div>
-        <button class="btn primary" id="im-ocr">Lire le document avec Claude</button></div>${IM.aiNote ? `<p class="note">${esc(IM.aiNote)}</p>` : ""}</div>`;
-      $("#im-ocr", box).onclick = claudeReadDocument;
+      box.innerHTML = HAS_CLAUDE ? `<div class="card" style="margin-top:14px"><div class="card-h"><div><h2>Document sans texte lisible</h2><p>${IM.images ? "C'est une photo." : "Ce PDF est une image scannée."} Claude peut recopier le tableau à votre place (connexion internet requise), puis vous vérifiez avant d'importer.</p></div>
+        <button class="btn primary" id="im-ocr">Lire le document avec Claude</button></div>${IM.aiNote ? `<p class="note">${esc(IM.aiNote)}</p>` : ""}</div>`
+        : `<div class="card" style="margin-top:14px"><div class="alert">${IM.images ? "Une photo" : "Ce PDF est une image scannée : il"} ne contient pas de texte lisible hors ligne. Demandez le document à votre banque ou à votre client au format Excel ou CSV, ou ressaisissez-le à partir du modèle Excel de ce type.</div></div>`;
+      const ocr = $("#im-ocr", box); if (ocr) ocr.onclick = claudeReadDocument;
       return;
     }
     if (!IM.rows.length) { box.innerHTML = ""; return; }
@@ -1511,7 +1574,7 @@ VIEWS.import = {
           ${IM.sheets.length > 1 ? `<select class="input" id="im-sheet" style="width:auto" aria-label="Feuille">${IM.sheets.map(s => `<option ${s === IM.sheet ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>` : ""}
           ${IM.pdfLines ? `<div class="seg"><button data-pm="releve" class="${IM.pdfMode === "releve" ? "on" : ""}">Tableau détecté</button><button data-pm="brut" class="${IM.pdfMode === "brut" ? "on" : ""}">Texte brut</button></div>` : ""}
           <label class="btn sm" style="cursor:pointer"><input type="checkbox" class="chk" id="im-head" ${IM.header ? "checked" : ""}> 1re ligne = en-têtes</label>
-          <button class="btn sm" id="im-ai">Identifier avec Claude</button>
+          ${HAS_CLAUDE ? `<button class="btn sm" id="im-ai">Identifier avec Claude</button>` : ""}
         </div></div>
       ${IM.aiNote ? `<div class="alert good" style="margin-bottom:10px">${esc(IM.aiNote)}</div>` : ""}
       <div class="tbl-wrap" style="max-height:340px;overflow:auto"><table class="t"><thead>
@@ -1528,7 +1591,7 @@ VIEWS.import = {
     const sh = $("#im-sheet", box); if (sh) sh.onchange = () => { IM.sheet = sh.value; loadSheet(); afterRows(); IM.res = null; this.draw(el); };
     $$("[data-pm]", box).forEach(b => b.onclick = () => { IM.pdfMode = b.dataset.pm; applyPdfMode(); afterRows(); IM.res = null; this.draw(el); });
     $$("[data-o]", box).forEach(x => x.onchange = () => { const k = x.dataset.o; O[k] = ["date", "sens"].includes(k) ? x.value : k === "taux" || k === "duree" ? +x.value || 0 : normAcc(x.value); IM.res = null; const r = $("#im-res", box); if (r) r.innerHTML = ""; });
-    $("#im-ai", box).onclick = claudeMapColumns;
+    const ai = $("#im-ai", box); if (ai) ai.onclick = claudeMapColumns;
     $("#im-prev", box).onclick = () => {
       const miss = T.need.filter(f => !IM.map.includes(f)).map(f => fields[f]);
       if (T.needOne.length && !T.needOne.some(f => IM.map.includes(f))) miss.push(T.needOne.map(f => fields[f]).join(" ou "));
@@ -1883,9 +1946,11 @@ VIEWS.societe = {
         <div class="field"><label for="s-fin">Fin d'exercice</label><input class="input" type="date" id="s-fin" value="${esc(s.fin)}"></div>
       </div>
       <div class="btns" style="margin-top:14px"><button class="btn primary" id="s-save">Enregistrer le dossier</button></div></div>
-      <div class="card" style="margin-top:14px"><div class="card-h"><div><h2>Sauvegarde</h2><p>Une copie complète du dossier (écritures, comptes, paramètres) au format JSON.</p></div></div>
-      <div class="btns"><button class="btn" id="s-backup">Télécharger une sauvegarde</button><label class="btn" for="s-restore-f" style="cursor:pointer">Restaurer une sauvegarde</label><input type="file" id="s-restore-f" accept=".json" hidden></div>
-      <p class="note" id="s-restore-note" style="margin-top:8px">La restauration ajoute les écritures absentes du dossier sans effacer les existantes.</p></div>
+      <div class="card" style="margin-top:14px" id="s-auto" ${S.mode === "local" && Backup.state !== "unsupported" ? "" : "hidden"}><div class="card-h"><div><h2>Sauvegarde automatique</h2><p id="s-auto-txt"></p></div><button class="btn primary" id="s-auto-btn"></button></div></div>
+      <div class="card" style="margin-top:14px"><div class="card-h"><div><h2>Sauvegarde manuelle</h2><p>Une copie complète du dossier (écritures, comptes, salariés, bulletins, immobilisations, paramètres) au format JSON, à garder sur une clé USB ou un autre disque.</p></div></div>
+      <div class="btns"><button class="btn" id="s-backup">Télécharger une sauvegarde</button><label class="btn" for="s-restore-f" style="cursor:pointer">Restaurer une sauvegarde</label><input type="file" id="s-restore-f" accept=".json" hidden>
+        <select class="input" id="s-restore-mode" style="width:auto" aria-label="Mode de restauration"><option value="merge">Ajouter ce qui manque</option><option value="replace">Remplacer tout le dossier</option></select></div>
+      <p class="note" id="s-restore-note" style="margin-top:8px">« Ajouter ce qui manque » complète le dossier sans rien effacer. « Remplacer tout le dossier » sert à transférer un dossier vers un autre ordinateur.</p></div>
       <div class="card" style="margin-top:14px"><div class="card-h"><div><h2>Écritures d'exemple</h2><p id="s-ex-txt"></p></div><button class="btn danger" id="s-ex">Supprimer les exemples</button></div></div>`;
     $("#s-regime").value = s.regime || "RNI"; $("#s-tva").value = String(s.tva ?? 19);
     $("#s-save").onclick = () => {
@@ -1895,17 +1960,29 @@ VIEWS.societe = {
       JL.from = JL.to = GL.from = GL.to = BL.from = BL.to = "";
       guard(() => Store.saveSociete(n), "Dossier enregistré.");
     };
-    $("#s-backup").onclick = () => saveFile(`smartcompta-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({app: "SmartCompta Exp", version: 1, societe: S.societe, comptes: S.comptes, ecritures: S.ecritures}, null, 1), "application/json");
+    $("#s-backup").onclick = async () => { await saveFile(`smartcompta-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(dossierData(), null, 1), "application/json"); markBackup(); };
+    $("#s-auto-btn").onclick = () => Backup.state === "paused" ? Backup.resume() : Backup.choose();
     $("#s-restore-f").onchange = async e => {
-      const f = e.target.files[0]; if (!f) return;
-      try {
-        const d = JSON.parse(await f.text());
-        if (!d || !Array.isArray(d.ecritures)) throw new Error();
-        const have = new Set(S.ecritures.map(x => x.id));
-        const list = d.ecritures.filter(x => x && x.id && !have.has(x.id) && Array.isArray(x.lignes));
+      const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+      let d;
+      try { d = JSON.parse(await f.text()); if (!d || !Array.isArray(d.ecritures)) throw new Error(); }
+      catch (err) { return toast("Ce fichier n'est pas une sauvegarde SmartCompta valide.", "bad"); }
+      const okE = x => x && x.id && Array.isArray(x.lignes);
+      if ($("#s-restore-mode").value === "replace") {
+        if (S.mode !== "local") return toast("Le remplacement complet n'est disponible que dans la version installée sur l'ordinateur.", "bad");
+        applyData({...d, ecritures: d.ecritures.filter(okE)}); Store.persist(); fillDatalist(); refresh(); this.mount($("#view"));
+        return toast(`Dossier remplacé : ${S.ecritures.length} écriture(s), ${S.salaries.length} salarié(s), ${S.immos.length} immobilisation(s).`);
+      }
+      const add = (coll, list) => { const have = new Set(S[coll].map(x => x.id)); return (list || []).filter(x => x && x.id && !have.has(x.id)); };
+      const ecr = add("ecritures", d.ecritures).filter(okE), sal = add("salaries", d.salaries), bul = add("bulletins", d.bulletins), imm = add("immos", d.immos);
+      const ok = await guard(async () => {
         for (const [num, lib] of Object.entries(d.comptes || {})) if (!S.comptes[num]) await Store.saveAccount(num, lib);
-        if (await guard(() => Store.saveMany(list))) toast(`${list.length} écriture(s) restaurée(s).`);
-      } catch (err) { toast("Ce fichier n'est pas une sauvegarde SmartCompta valide.", "bad"); }
+        if (ecr.length) await Store.putMany("ecritures", ecr);
+        if (sal.length) await Store.putMany("salaries", sal);
+        if (bul.length) await Store.putMany("bulletins", bul);
+        if (imm.length) await Store.putMany("immos", imm);
+      });
+      if (ok) toast(`Restauration : ${ecr.length} écriture(s), ${sal.length} salarié(s), ${bul.length} bulletin(s), ${imm.length} immobilisation(s) ajoutés.`);
     };
     $("#s-ex").onclick = async () => {
       const ex = S.ecritures.filter(x => x.exemple); if (!ex.length) return toast("Aucune écriture d'exemple dans le dossier.");
@@ -1917,6 +1994,14 @@ VIEWS.societe = {
     const n = S.ecritures.filter(x => x.exemple).length;
     const t = $("#s-ex-txt", el); if (t) t.textContent = n ? `${n} écriture(s) de démonstration sont présentes. Supprimez-les avant de tenir votre comptabilité réelle.` : "Aucune écriture d'exemple dans le dossier.";
     const b = $("#s-ex", el); if (b) b.disabled = !n;
+    const at = $("#s-auto-txt", el), ab = $("#s-auto-btn", el);
+    if (at && ab) {
+      $("#s-auto", el).hidden = !(S.mode === "local" && Backup.state !== "unsupported");
+      at.textContent = Backup.state === "ok" ? `Active : chaque modification est recopiée dans « ${Backup.handle.name} »${Backup.last ? ", dernière copie à " + Backup.last.toLocaleTimeString("fr-FR") : ""}. Placez ce fichier sur une clé USB ou un dossier synchronisé pour être protégé d'une panne du disque.`
+        : Backup.state === "paused" ? `En pause depuis le dernier démarrage : Windows demande votre accord pour écrire de nouveau dans « ${Backup.handle.name} ».`
+        : "Choisissez un fichier : chaque modification y sera recopiée automatiquement. Les données restent aussi enregistrées dans l'application.";
+      ab.textContent = Backup.state === "ok" ? "Changer de fichier" : Backup.state === "paused" ? "Reprendre la sauvegarde automatique" : "Choisir le fichier de sauvegarde";
+    }
   }
 };
 
@@ -2492,6 +2577,8 @@ function renderProposals(box) {
 }
 
 /* ============ Démarrage ============ */
+const HAS_CLAUDE = !!(window.claude && typeof window.claude.use === "function");
+if (!HAS_CLAUDE) { const a = document.querySelector('#nav a[data-v="claude"]'); if (a) a.remove(); }
 fillDatalist();
 go();
 Store.init();
