@@ -33,7 +33,7 @@ VIAddVersionKey /LANG=1036 "LegalCopyright" "SmartCompta Exp"
 !define MUI_UNICON "smartcompta.ico"
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "Installation de ${APP}"
-!define MUI_WELCOMEPAGE_TEXT "Logiciel de comptabilité SYSCOHADA révisé pour le Niger : saisie, import Excel, PDF et texte, lettrage, paie CNSS, ITS et FSSP, immobilisations, balance et états.$\r$\n$\r$\nL'application fonctionne entièrement hors ligne. Vos données restent sur cet ordinateur.$\r$\n$\r$\nCliquez sur Suivant pour continuer."
+!define MUI_WELCOMEPAGE_TEXT "Logiciel de comptabilité SYSCOHADA révisé pour le Niger : saisie, import Excel, PDF et texte, lettrage, paie CNSS, ITS et FSSP, immobilisations, balance et états.$\r$\n$\r$\nL'application fonctionne entièrement hors ligne. Vos données restent sur cet ordinateur.$\r$\n$\r$\nAu premier démarrage, un code d'accès vous sera demandé : munissez-vous du code remis par votre fournisseur.$\r$\n$\r$\nCliquez sur Suivant pour continuer."
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "Lancer ${APP} maintenant"
 !define MUI_FINISHPAGE_RUN_FUNCTION LaunchApp

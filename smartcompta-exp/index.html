@@ -141,6 +141,14 @@ table.lines .input{padding:6px 7px}
 .ai-msg code{font-family:var(--f-mono);font-size:.85em;background:var(--surface);padding:0 4px;border-radius:3px}
 .ai-input{display:flex;flex-direction:column;gap:8px}
 details summary{list-style-position:inside}
+.lock{min-height:100%;display:grid;place-items:center;padding-block:32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--side)}
+.lock-card{width:100%;max-width:460px;background:var(--surface);border-radius:12px;padding:28px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.lock-card .brand b{color:var(--ink)}.lock-card .brand small{color:var(--muted)}
+.lock-card form{display:flex;flex-direction:column;gap:10px}
+.lock-err{color:var(--bad);font-size:.85rem;min-height:1.2em;margin:0}
+.lock-machine{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface-2);border-radius:8px;padding:10px 12px}
+.lock-machine span{font-size:.78rem;color:var(--muted);flex:1 1 100%}.lock-machine b{font-size:1.15rem;letter-spacing:.08em;flex:1}
+.mono{font-family:var(--f-mono)}
 @media (max-width:1000px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:860px){
   .app{grid-template-columns:minmax(0,1fr)}
@@ -1946,6 +1954,7 @@ VIEWS.societe = {
         <div class="field"><label for="s-fin">Fin d'exercice</label><input class="input" type="date" id="s-fin" value="${esc(s.fin)}"></div>
       </div>
       <div class="btns" style="margin-top:14px"><button class="btn primary" id="s-save">Enregistrer le dossier</button></div></div>
+      ${Licence.info ? `<div class="card" style="margin-top:14px"><div class="card-h"><div><h2>Licence</h2><p>${esc(Licence.info.label)} · code ${esc(Licence.masked(Licence.info.code))} · activée le ${fmtDate(Licence.info.date.slice(0, 10))} · ordinateur ${esc(Licence.info.machine)}</p></div></div></div>` : ""}
       <div class="card" style="margin-top:14px" id="s-auto" ${S.mode === "local" && Backup.state !== "unsupported" ? "" : "hidden"}><div class="card-h"><div><h2>Sauvegarde automatique</h2><p id="s-auto-txt"></p></div><button class="btn primary" id="s-auto-btn"></button></div></div>
       <div class="card" style="margin-top:14px"><div class="card-h"><div><h2>Sauvegarde manuelle</h2><p>Une copie complète du dossier (écritures, comptes, salariés, bulletins, immobilisations, paramètres) au format JSON, à garder sur une clé USB ou un autre disque.</p></div></div>
       <div class="btns"><button class="btn" id="s-backup">Télécharger une sauvegarde</button><label class="btn" for="s-restore-f" style="cursor:pointer">Restaurer une sauvegarde</label><input type="file" id="s-restore-f" accept=".json" hidden>
@@ -2576,10 +2585,72 @@ function renderProposals(box) {
   });
 }
 
+/* ============ Code d'accès (version Windows) ============ */
+// Actif seulement quand la version hors ligne embarque une configuration de licence (offline/build.py).
+const Licence = {
+  cfg: () => window.SMARTCOMPTA_LICENCE && window.SCXCore ? window.SMARTCOMPTA_LICENCE : null,
+  info: null,
+  async kv(k, v) {
+    if (v === undefined) { try { const x = await IDB.get(k); if (x !== undefined) return x; } catch (e) {} try { return JSON.parse(localStorage.getItem("scx-" + k) || "null") || undefined; } catch (e) { return undefined; } }
+    try { await IDB.set(k, v); } catch (e) {} try { localStorage.setItem("scx-" + k, JSON.stringify(v)); } catch (e) {}
+  },
+  async machine() { let m = await this.kv("machine"); if (!m) { m = SCXCore.machineCode(); await this.kv("machine", m); } return m; },
+  async ok() {
+    const cfg = this.cfg(); if (!cfg) return true;
+    const rec = await this.kv("licence"), m = await this.machine();
+    if (!rec || !rec.code) return false;
+    const r = SCXCore.check(cfg, rec.code, m);
+    if (!r) return false;
+    this.info = {...rec, ...r, machine: m}; return true;
+  },
+  async screen(onDone) {
+    const cfg = this.cfg(), m = await this.machine();
+    document.querySelector(".app").hidden = true;
+    const box = document.createElement("div"); box.className = "lock"; box.id = "lock";
+    box.innerHTML = `<div class="lock-card">
+      <div class="brand"><div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-7"/></svg></div><div><b>SmartCompta Exp</b><small>Activation du logiciel</small></div></div>
+      <h1>Code d'accès</h1>
+      <p>Saisissez le code d'accès qui vous a été remis par ${esc(cfg.vendor || "votre fournisseur")}. Il n'est demandé qu'une fois sur cet ordinateur.</p>
+      <form id="lock-f" autocomplete="off"><div class="field"><label for="lock-code">Code d'accès ou code d'activation</label>
+        <input class="input mono" id="lock-code" placeholder="SCX-XXXX-XXXX-XXXX" spellcheck="false" autocapitalize="characters" style="font-size:1.1rem;letter-spacing:.06em"></div>
+        <p class="lock-err" id="lock-err" role="alert"></p>
+        <button class="btn primary" type="submit" style="width:100%;padding:10px">Activer et démarrer</button></form>
+      <div class="lock-machine"><span>Code de cet ordinateur</span><b class="mono" id="lock-m">${esc(m)}</b><button class="btn sm" type="button" id="lock-copy">Copier</button></div>
+      <p class="note">Vous n'avez pas de code d'accès ? Communiquez le code de cet ordinateur à ${esc(cfg.vendor || "votre fournisseur")} : vous recevrez un code d'activation valable uniquement pour cet ordinateur.</p>
+    </div>`;
+    document.body.appendChild(box);
+    const inp = box.querySelector("#lock-code"), err = box.querySelector("#lock-err");
+    inp.focus();
+    let fails = 0, until = 0;
+    box.querySelector("#lock-copy").onclick = async () => { try { await navigator.clipboard.writeText(m); toast("Code de l'ordinateur copié."); } catch (e) { const r = document.createRange(); r.selectNodeContents(box.querySelector("#lock-m")); getSelection().removeAllRanges(); getSelection().addRange(r); } };
+    box.querySelector("#lock-f").onsubmit = async e => {
+      e.preventDefault();
+      if (Date.now() < until) { err.textContent = `Trop d'essais. Réessayez dans ${Math.ceil((until - Date.now()) / 1000)} secondes.`; return; }
+      const code = inp.value.trim();
+      if (!code) { err.textContent = "Saisissez votre code d'accès."; return; }
+      const r = SCXCore.check(cfg, code, m);
+      if (!r) {
+        fails++; if (fails >= 5) { until = Date.now() + 30000; fails = 0; }
+        err.textContent = "Code non reconnu. Vérifiez la saisie (les tirets et les minuscules sont acceptés). Un code d'activation ne fonctionne que sur l'ordinateur dont le code a été communiqué.";
+        return;
+      }
+      const rec = {code: SCXCore.norm(code), date: new Date().toISOString()};
+      await this.kv("licence", rec);
+      this.info = {...rec, ...r, machine: m};
+      box.remove(); document.querySelector(".app").hidden = false;
+      toast(`Logiciel activé : ${r.label}.`);
+      onDone();
+    };
+  },
+  masked(code) { const c = SCXCore.norm(code); return c.length > 10 ? "SCX-••••-••••-" + c.slice(-4) : "•••••-" + c.slice(-5); }
+};
+
 /* ============ Démarrage ============ */
 const HAS_CLAUDE = !!(window.claude && typeof window.claude.use === "function");
 if (!HAS_CLAUDE) { const a = document.querySelector('#nav a[data-v="claude"]'); if (a) a.remove(); }
 fillDatalist();
-go();
-Store.init();
+(async () => {
+  const start = () => { go(); Store.init(); };
+  if (Licence.cfg() && !(await Licence.ok())) Licence.screen(start); else start();
+})();
 </script>

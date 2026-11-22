@@ -6,10 +6,20 @@ Produit, dans smartcompta-exp/dist/ :
   - smartcompta.ico             : icône de l'application
   - SmartCompta-Exp-Setup.exe   : installateur Windows (si makensis est disponible)
 
-Usage : python3 offline/build.py  (depuis le dossier smartcompta-exp)
+Et, dans smartcompta-exp/prive/ (dossier confidentiel, exclu du dépôt Git) :
+  - cle-licence.json                    : clé secrète et codes d'accès (à conserver précieusement)
+  - Generateur-codes-SmartCompta.html   : outil pour produire un code d'activation par ordinateur
+  - Codes-acces-SmartCompta.xlsx        : registre des licences à remettre aux clients
+
+Usage : python3 offline/build.py [--codes 20] [--sans-licence]  (depuis le dossier smartcompta-exp)
+La clé et les codes sont créés au premier lancement puis réutilisés : les codes déjà remis restent valables.
 """
 import os
 import re
+import json
+import hmac
+import hashlib
+import secrets
 import shutil
 import subprocess
 import sys
@@ -17,7 +27,63 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OFF = os.path.join(ROOT, "offline")
 DIST = os.path.join(ROOT, "dist")
-VERSION = "1.0.0"
+PRIVE = os.path.join(ROOT, "prive")
+VERSION = "1.1.0"
+VENDOR = "Smart Consulting"
+ALPHA = "ABCDEFGHJKMNPQRSTVWXYZ0123456789"
+
+
+def licence(n_codes):
+    """Crée (une seule fois) la clé secrète et les codes d'accès, puis renvoie la configuration embarquée."""
+    os.makedirs(PRIVE, exist_ok=True)
+    path = os.path.join(PRIVE, "cle-licence.json")
+    if os.path.exists(path):
+        data = json.load(open(path, encoding="utf-8"))
+    else:
+        data = {"secret": secrets.token_hex(32), "codes": []}
+    have = len(data["codes"])
+    for i in range(have, n_codes):
+        raw = "".join(secrets.choice(ALPHA) for _ in range(12))
+        data["codes"].append({"n": i + 1, "code": "SCX-" + "-".join(raw[j:j + 4] for j in range(0, 12, 4))})
+    json.dump(data, open(path, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    secret = bytes.fromhex(data["secret"])
+    mask = hashlib.sha256("SmartCompta-Exp|cle|2026".encode()).digest()
+    k = bytes(b ^ mask[i % 32] for i, b in enumerate(secret)).hex()
+    norm = lambda c: c.replace("-", "")
+    cfg = {"vendor": VENDOR, "k": k, "codes": [{"h": hashlib.sha256(("SCX-LIST|" + norm(x["code"])).encode()).hexdigest(), "l": "Licence %02d" % x["n"]} for x in data["codes"]]}
+    return data, cfg, k
+
+
+def activation(secret_hex, machine):
+    m = re.sub(r"[^A-Z0-9]", "", machine.upper())
+    d = hmac.new(bytes.fromhex(secret_hex), ("SCX-MACH|" + m).encode(), hashlib.sha256).digest()
+    bits = "".join(f"{b:08b}" for b in d)[:50]
+    out = "".join(ALPHA[int(bits[i:i + 5], 2)] for i in range(0, 50, 5))
+    return out[:5] + "-" + out[5:]
+
+
+def write_private(data, k):
+    core = open(os.path.join(OFF, "licence-core.js"), encoding="utf-8").read()
+    gen = open(os.path.join(OFF, "generateur.html"), encoding="utf-8").read()
+    gen = gen.replace("/*__CORE__*/", inline_js(core)).replace("/*__DATA__*/", json.dumps({"k": k, "list": data["codes"]}))
+    open(os.path.join(PRIVE, "Generateur-codes-SmartCompta.html"), "w", encoding="utf-8").write(gen)
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+        wb = Workbook(); ws = wb.active; ws.title = "Registre des licences"
+        ws.append(["Licence", "Code d'accès", "Remis à (client)", "Poste / ordinateur", "Date de remise", "Observations"])
+        for x in data["codes"]:
+            ws.append(["Licence %02d" % x["n"], x["code"], "", "", "", ""])
+        for c in ws[1]:
+            c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="0E6B63"); c.alignment = Alignment(vertical="center")
+        for col, w in zip("ABCDEF", (12, 24, 30, 26, 16, 30)):
+            ws.column_dimensions[col].width = w
+        for row in ws.iter_rows(min_row=2, min_col=2, max_col=2):
+            row[0].font = Font(name="Consolas", bold=True)
+        ws.freeze_panes = "A2"
+        wb.save(os.path.join(PRIVE, "Codes-acces-SmartCompta.xlsx"))
+    except ImportError:
+        pass
 
 # Bibliothèques intégrées, dans l'ordre de chargement. Le « worker » de pdf.js est chargé
 # dans la page : pdf.js l'utilise alors directement, sans processus séparé ni réseau.
@@ -38,7 +104,7 @@ def inline_js(code: str) -> str:
     return re.sub(r"</(script)", r"<\\/\1", code, flags=re.I)
 
 
-def build_html() -> str:
+def build_html(cfg=None) -> str:
     src = open(os.path.join(ROOT, "index.html"), encoding="utf-8").read()
     # Polices Google : remplacées par les polices du système (Segoe UI sous Windows).
     src = re.sub(r'<link rel="(preconnect|stylesheet)" href="https://fonts\.(googleapis|gstatic)\.com[^>]*>\n?', "", src)
@@ -49,6 +115,9 @@ def build_html() -> str:
         code = open(os.path.join(OFF, "vendor", name), encoding="utf-8").read()
         libs.append(f"<script>/* {name} */\n{inline_js(code)}\n</script>")
     boot = '<script>window.SMARTCOMPTA_OFFLINE = true; window.SMARTCOMPTA_VERSION = "%s";</script>' % VERSION
+    if cfg:
+        core = open(os.path.join(OFF, "licence-core.js"), encoding="utf-8").read()
+        boot += "\n<script>window.SMARTCOMPTA_LICENCE = %s;</script>\n<script>%s</script>" % (json.dumps(cfg), inline_js(core))
     # Les bibliothèques passent juste avant le script principal de l'application.
     i = src.index("<script>\n\"use strict\";")
     body = src[:i] + boot + "\n" + "\n".join(libs) + "\n" + src[i:]
@@ -72,7 +141,14 @@ def build_icon(path: str):
 
 def main():
     os.makedirs(DIST, exist_ok=True)
-    html = build_html()
+    args = sys.argv[1:]
+    n = int(args[args.index("--codes") + 1]) if "--codes" in args else 20
+    cfg = None
+    if "--sans-licence" not in args:
+        data, cfg, k = licence(n)
+        write_private(data, k)
+        print(f"Licences : {len(data['codes'])} codes d'accès, générateur et registre dans {PRIVE}")
+    html = build_html(cfg)
     out = os.path.join(DIST, "SmartCompta-Exp.html")
     open(out, "w", encoding="utf-8").write(html)
     print(f"HTML autonome : {out} ({len(html.encode('utf-8')) / 1e6:.1f} Mo)")
