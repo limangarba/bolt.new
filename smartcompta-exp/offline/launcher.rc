@@ -1,8 +1,8 @@
 #include <winver.h>
 1 ICON "smartcompta.ico"
 1 VERSIONINFO
-FILEVERSION 1,2,0,0
-PRODUCTVERSION 1,2,0,0
+FILEVERSION 1,3,0,0
+PRODUCTVERSION 1,3,0,0
 FILEOS VOS_NT_WINDOWS32
 FILETYPE VFT_APP
 BEGIN
@@ -12,11 +12,11 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "SmartCompta Exp"
       VALUE "FileDescription", "SmartCompta Exp - comptabilite SYSCOHADA hors ligne"
-      VALUE "FileVersion", "1.2.0"
+      VALUE "FileVersion", "1.3.0"
       VALUE "InternalName", "SmartCompta Exp"
       VALUE "OriginalFilename", "SmartCompta Exp.exe"
       VALUE "ProductName", "SmartCompta Exp"
-      VALUE "ProductVersion", "1.2.0"
+      VALUE "ProductVersion", "1.3.0"
     END
   END
   BLOCK "VarFileInfo"

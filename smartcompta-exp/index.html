@@ -35,7 +35,7 @@ h3{font-size:.95rem;font-weight:600}
 p{margin:0}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.app{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100%}
+.app{display:flex;flex-direction:column;min-height:100%}
 .side{background:var(--side);color:var(--side-ink);padding-block:20px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:14px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh;overflow:auto}
 .brand{display:flex;gap:10px;align-items:center;padding:0 6px}
 .brand-mark{width:34px;height:34px;border-radius:7px;background:var(--accent);display:grid;place-items:center;flex:none}
@@ -141,6 +141,39 @@ table.lines .input{padding:6px 7px}
 .ai-msg code{font-family:var(--f-mono);font-size:.85em;background:var(--surface);padding:0 4px;border-radius:3px}
 .ai-input{display:flex;flex-direction:column;gap:8px}
 details summary{list-style-position:inside}
+.shell{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--surface);border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:31;background:var(--side)}
+.titlebar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--side);padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.titlebar .brand-mark{width:30px;height:30px}.titlebar .status{background:rgba(255,255,255,.08);border-color:transparent;color:var(--side-ink)}
+.menubar{display:flex;flex-wrap:wrap;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--surface)}
+.mb-item{position:relative}
+.mb-btn{border:0;background:none;padding:7px 11px;font-weight:500;cursor:pointer;color:var(--ink);border-radius:4px}
+.mb-btn:hover,.mb-btn.on{background:var(--accent-soft);color:var(--accent)}
+.mb-drop{position:absolute;left:0;top:100%;min-width:280px;max-width:min(380px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:6px;z-index:40}
+.mb-item:nth-last-child(-n+2) .mb-drop{left:auto;right:0}
+.mb-drop button{display:flex;width:100%;justify-content:space-between;gap:16px;align-items:center;border:0;background:none;text-align:left;padding:7px 10px;border-radius:5px;cursor:pointer;color:var(--ink)}
+.mb-drop button:hover,.mb-drop button:focus-visible{background:var(--accent-soft);outline:none}
+.mb-drop kbd{font-family:var(--f-mono);font-size:.72rem;color:var(--muted)}
+.mb-drop hr{border:0;border-top:1px solid var(--line);margin:5px 4px}
+.toolbar{display:flex;gap:2px;overflow-x:auto;scrollbar-width:thin;padding-block:4px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px))}
+.tb-btn{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--muted);font-size:.74rem;white-space:nowrap}
+.tb-btn svg{color:var(--accent)}.tb-btn:hover{background:var(--accent-soft);color:var(--ink)}
+.tb-sep{width:1px;background:var(--line);margin:6px 4px;flex:none}
+.home-sec{margin-bottom:22px}.home-sec h2{font-size:1.05rem;margin-bottom:10px;color:var(--muted);font-weight:500}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.tile{display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:var(--ink);text-decoration:none;min-height:118px;transition:border-color .15s,transform .15s}
+.tile svg{color:var(--accent)}.tile b{font-family:var(--f-display);font-weight:600}.tile span{font-size:.8rem;color:var(--muted)}
+.tile:hover{border-color:var(--accent);transform:translateY(-1px)}
+.calc{position:fixed;right:max(16px,calc(env(safe-area-inset-right,0px) + 16px));top:calc(env(safe-area-inset-top,0px) + 150px);width:min(300px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.25);padding:12px;z-index:45;display:flex;flex-direction:column;gap:8px}
+.calc-h{display:flex;justify-content:space-between;align-items:center}
+.calc-out{display:flex;justify-content:space-between;align-items:center;font-family:var(--f-mono);font-size:1.3rem;padding:6px 4px}
+.calc-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.calc-keys .btn{padding:9px 0;font-family:var(--f-mono)}
+.ctl{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface)}
+.ctl summary{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;cursor:pointer;list-style:none}
+.ctl-bad{border-left:4px solid var(--bad)}.ctl-warn{border-left:4px solid var(--ochre)}.ctl-ok{border-left:4px solid var(--good)}.ctl-info{border-left:4px solid var(--line)}
+.prose{max-width:860px}.prose h2{margin:18px 0 8px}.prose h2:first-child{margin-top:0}.prose ol,.prose ul{padding-left:22px;display:flex;flex-direction:column;gap:6px}.prose code{font-family:var(--f-mono);background:var(--surface-2);padding:0 4px;border-radius:3px}
+@media print{.shell,.toast,.calc,.btns,.btn{display:none!important}.main{padding:0}body{background:#fff}}
+@media (max-width:860px){.mb-btn{padding:7px 8px}.tb-btn span{display:none}.titlebar .brand small{display:none}}
 .lock{min-height:100%;display:grid;place-items:center;padding-block:32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--side)}
 .lock-card{width:100%;max-width:460px;background:var(--surface);border-radius:12px;padding:28px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .lock-card .brand b{color:var(--ink)}.lock-card .brand small{color:var(--muted)}
@@ -166,38 +199,20 @@ details summary{list-style-position:inside}
 </style>
 
 <div class="app">
-  <aside class="side">
-    <div class="brand">
-      <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-7"/></svg></div>
-      <div><b>SmartCompta Exp</b><small>SYSCOHADA révisé · Niger</small></div>
+  <header class="shell">
+    <div class="titlebar">
+      <div class="brand"><div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-7"/></svg></div>
+        <div><b>SmartCompta Exp</b><small id="t-soc">SYSCOHADA révisé · Niger</small></div></div>
+      <span class="status" id="status"><i></i><span>Connexion…</span></span>
     </div>
-    <nav class="nav" id="nav">
-      <div class="nav-group">Pilotage</div>
-      <a href="#tableau" data-v="tableau">Tableau de bord</a>
-      <a href="#claude" data-v="claude">Assistant Claude <span class="k">IA</span></a>
-      <div class="nav-group">Traitements</div>
-      <a href="#saisie" data-v="saisie">Saisie <span class="k">écritures</span></a>
-      <a href="#ecritures" data-v="ecritures">Journaux</a>
-      <a href="#import" data-v="import">Importer <span class="k">PDF · XLS · TXT</span></a>
-      <a href="#lettrage" data-v="lettrage">Lettrage <span class="k">tiers</span></a>
-      <div class="nav-group">Gestion</div>
-      <a href="#paie" data-v="paie">Paie <span class="k">CNSS · ITS</span></a>
-      <a href="#immos" data-v="immos">Immobilisations</a>
-      <div class="nav-group">États</div>
-      <a href="#grandlivre" data-v="grandlivre">Grand livre</a>
-      <a href="#balance" data-v="balance">Balance</a>
-      <a href="#etats" data-v="etats">Bilan &amp; résultat</a>
-      <div class="nav-group">Structure</div>
-      <a href="#plan" data-v="plan">Plan comptable</a>
-      <a href="#societe" data-v="societe">Dossier</a>
-    </nav>
-    <div class="side-foot">Montants en FCFA. TVA Niger : 19 %.</div>
-  </aside>
+    <nav class="menubar" id="menubar" aria-label="Menu principal"></nav>
+    <div class="toolbar" id="toolbar" role="toolbar" aria-label="Barre d'outils"></div>
+    <nav id="nav" hidden></nav>
+  </header>
   <main class="main">
     <div class="wrap">
       <div class="topbar">
-        <div><h1 id="v-title">Tableau de bord</h1><p class="sub" id="v-sub"></p></div>
-        <span class="status" id="status"><i></i><span>Connexion…</span></span>
+        <div><h1 id="v-title">Accueil</h1><p class="sub" id="v-sub"></p></div>
       </div>
       <div id="view"></div>
     </div>
@@ -487,11 +502,14 @@ function parseDate(v, fallbackYear) {
   };
   if (v instanceof Date && !isNaN(v)) { const t = new Date(v.getTime() + 12 * 3600e3); return iso(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()); }
   if (typeof v === "number") {
+    if (Number.isInteger(v) && v > 19000101 && v < 21001231) return parseDate(String(v));
     if (v > 20000 && v < 80000) { const t = new Date(Date.UTC(1899, 11, 30) + v * 864e5); return iso(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()); }
     return null;
   }
   const s = String(v).trim();
-  let m = s.match(/^(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})/);
+  let m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m) return iso(+m[1], +m[2], +m[3]);
+  m = s.match(/^(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})/);
   if (m) return iso(+m[1], +m[2], +m[3]);
   m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\b/);
   if (m) return iso(+m[3], +m[2], +m[1]);
@@ -549,7 +567,7 @@ async function exportXlsx(filename, sheets) {
 }
 
 /* ============ État & stockage ============ */
-const S = {mode: "loading", societe: {...DEF_SOC}, comptes: {}, ecritures: [], salaries: [], bulletins: [], immos: [], paie: {...DEF_PAIE}, ready: false, slow: false, dbError: null};
+const S = {mode: "loading", societe: {...DEF_SOC}, comptes: {}, ecritures: [], salaries: [], bulletins: [], immos: [], paie: {...DEF_PAIE}, structure: {journaux: {}, taxes: [], commandes: []}, comptesX: {}, ready: false, slow: false, dbError: null};
 const Store = {
   db: null,
   async init() {
@@ -557,7 +575,7 @@ const Store = {
     const db = await claudeUse("db");
     if (!db) return this.local();
     this.db = db; S.mode = "db";
-    const got = {e: false, c: false, s: false, sa: false, b: false, p: false, im: false};
+    const got = {e: false, c: false, s: false, sa: false, b: false, p: false, im: false, st: false};
     const timer = setTimeout(() => { if (!S.ready) { S.slow = true; renderStatus(); } }, 10000);
     const check = () => { if (Object.values(got).every(Boolean) && !S.ready) { S.ready = true; S.slow = false; clearTimeout(timer); } refresh(); };
     db.collection("salaries").onSnapshot(snap => { S.salaries = snap.docs.map(d => ({id: d.id, ...d.data()})); got.sa = true; check(); }, onErr);
@@ -566,7 +584,8 @@ const Store = {
     db.doc("config/paie").onSnapshot(snap => { S.paie = {...DEF_PAIE, ...(snap.exists ? snap.data() : {})}; got.p = true; check(); }, onErr);
     const onErr = e => { clearTimeout(timer); S.dbError = e.code; S.ready = true; refresh(); };
     db.collection("ecritures").onSnapshot(snap => { S.ecritures = snap.docs.map(d => ({id: d.id, ...d.data()})); got.e = true; check(); }, onErr);
-    db.collection("comptes").onSnapshot(snap => { const m = {}; snap.docs.forEach(d => { const x = d.data(); if (x && x.num) m[x.num] = x.lib; }); S.comptes = m; got.c = true; fillDatalist(); check(); }, onErr);
+    db.doc("config/structure").onSnapshot(snap => { S.structure = {...DEF_STRUCT(), ...(snap.exists ? snap.data() : {})}; applyStructure(); got.st = true; check(); }, onErr);
+    db.collection("comptes").onSnapshot(snap => { const m = {}, X = {}; snap.docs.forEach(d => { const x = d.data(); if (x && x.num) { m[x.num] = x.lib; X[x.num] = x; } }); S.comptes = m; S.comptesX = X; got.c = true; fillDatalist(); check(); }, onErr);
     db.doc("config/societe").onSnapshot(snap => { S.societe = {...DEF_SOC, ...(snap.exists ? snap.data() : {})}; got.s = true; check(); }, onErr);
   },
   async local() {
@@ -602,6 +621,14 @@ const Store = {
   async deleteEntry(id) {
     if (S.mode === "db") { await this.db.collection("ecritures").doc(id).delete(); return; }
     S.ecritures = S.ecritures.filter(x => x.id !== id); this.persist(); refresh();
+  },
+  async saveAccountX(doc) {
+    if (S.mode === "db") { await this.db.collection("comptes").doc(doc.num).set(doc); return; }
+    S.comptes[doc.num] = doc.lib; S.comptesX[doc.num] = doc; this.persist(); fillDatalist(); refresh();
+  },
+  async putStructure(st) {
+    if (S.mode === "db") { await this.db.doc("config/structure").set(st); return; }
+    S.structure = {...DEF_STRUCT(), ...st}; applyStructure(); this.persist(); refresh();
   },
   async saveAccount(num, lib) {
     if (S.mode === "db") { await this.db.collection("comptes").doc(num).set({num, lib}); return; }
@@ -647,10 +674,13 @@ function fillDatalist() {
   $("#dl-comptes").innerHTML = Object.keys(all).filter(k => k.length >= 3).sort().map(k => `<option value="${esc(k)}">${esc(all[k])}</option>`).join("");
 }
 
-function dossierData() { return {app: "SmartCompta Exp", version: 2, date: new Date().toISOString(), societe: S.societe, comptes: S.comptes, ecritures: S.ecritures, salaries: S.salaries, bulletins: S.bulletins, immos: S.immos, paie: S.paie}; }
+function dossierData() { return {app: "SmartCompta Exp", version: 2, date: new Date().toISOString(), societe: S.societe, comptes: S.comptes, ecritures: S.ecritures, salaries: S.salaries, bulletins: S.bulletins, immos: S.immos, paie: S.paie, structure: S.structure, comptesX: S.comptesX}; }
 function applyData(d) {
   S.ecritures = d.ecritures || []; S.comptes = d.comptes || {}; S.societe = {...DEF_SOC, ...(d.societe || {})};
   S.salaries = d.salaries || []; S.bulletins = d.bulletins || []; S.immos = d.immos || []; S.paie = {...DEF_PAIE, ...(d.paie || {})};
+  S.structure = {...DEF_STRUCT(), ...(d.structure || {})}; S.comptesX = d.comptesX || {};
+  Object.entries(S.comptes).forEach(([k, v]) => { if (!S.comptesX[k]) S.comptesX[k] = {num: k, lib: v}; });
+  applyStructure();
 }
 const IDB = {
   db: null,
@@ -736,9 +766,10 @@ const VIEWS = {};
 let current = null;
 function go() {
   const h = (location.hash || "").slice(1);
-  const v = VIEWS[h] ? h : "tableau";
-  $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.v === v));
+  const v = VIEWS[h] ? h : "accueil";
+  if (NAVHIST[NAVHIST.length - 1] !== v) { const k = NAVHIST.indexOf(v); if (k >= 0) NAVHIST.splice(k, 1); NAVHIST.push(v); }
   current = v;
+  renderMenus();
   $("#v-title").textContent = VIEWS[v].title;
   $("#view").innerHTML = "";
   VIEWS[v].mount($("#view"));
@@ -749,6 +780,7 @@ function refresh() {
   renderStatus();
   const s = S.societe;
   $("#v-sub").textContent = (s.raison ? s.raison + " · " : "") + `Exercice du ${fmtDate(s.debut)} au ${fmtDate(s.fin)}`;
+  const ts = $("#t-soc"); if (ts) ts.textContent = s.raison ? s.raison : "SYSCOHADA révisé · Niger";
   if (current && VIEWS[current].update) VIEWS[current].update($("#view"));
 }
 function renderStatus() {
@@ -877,7 +909,7 @@ VIEWS.saisie = {
           <div class="field"><label for="a-cpt">Compte de charge ou produit</label><input class="input mono" id="a-cpt" list="dl-comptes" value="601"><div class="acc-lbl" id="a-cpt-l"></div></div>
           <div class="field"><label for="a-tiers">Compte de tiers</label><input class="input mono" id="a-tiers" list="dl-comptes" value="401"><div class="acc-lbl" id="a-tiers-l"></div></div>
           <div class="field"><label for="a-ht">Montant HT</label><input class="input num" id="a-ht" inputmode="decimal" placeholder="0"></div>
-          <div class="field"><label for="a-tva">Taux de TVA</label><select class="input" id="a-tva"><option value="19">19 % (taux normal)</option><option value="0">0 % (exonéré)</option></select></div>
+          <div class="field"><label for="a-tva">Taux de TVA</label><select class="input" id="a-tva">${taxes().map((t, i) => `<option value="${i}">${esc(t.libelle)} (${String(t.taux).replace(".", ",")} %)</option>`).join("")}</select></div>
         </div>
         <div class="btns" style="margin-top:12px"><button class="btn" id="a-go">Générer les lignes</button></div>
       </div>
@@ -897,9 +929,9 @@ VIEWS.saisie = {
     const aLbl = () => { $("#a-cpt-l").textContent = labelOf($("#a-cpt").value); $("#a-tiers-l").textContent = labelOf($("#a-tiers").value); };
     $("#a-type").onchange = e => { const v = e.target.value === "vente"; $("#a-cpt").value = v ? "701" : "601"; $("#a-tiers").value = v ? "411" : "401"; aLbl(); };
     $("#a-cpt").oninput = aLbl; $("#a-tiers").oninput = aLbl; aLbl();
-    $("#a-tva").value = String(S.societe.tva ?? 19) === "0" ? "0" : "19";
+    { const k = taxes().findIndex(t => +t.taux === (String(S.societe.tva ?? 19) === "0" ? 0 : 19)); if (k >= 0) $("#a-tva").value = String(k); }
     $("#a-go").onclick = () => {
-      const ht = parseAmount($("#a-ht").value); const taux = +$("#a-tva").value;
+      const ht = parseAmount($("#a-ht").value); const tx = taxes()[+$("#a-tva").value] || taxes()[0]; const taux = +tx.taux;
       if (!ht || ht <= 0) { toast("Indiquez un montant HT positif.", "bad"); return; }
       const cpt = normAcc($("#a-cpt").value), tiers = normAcc($("#a-tiers").value);
       if (!accountValid(cpt) || !accountValid(tiers)) { toast("Vérifiez les numéros de compte de la facture.", "bad"); return; }
@@ -908,7 +940,7 @@ VIEWS.saisie = {
       F.lignes = vente
         ? [{compte: tiers, libelle: lib, debit: String(ttc), credit: ""}, {compte: cpt, libelle: lib, debit: "", credit: String(ht)}]
         : [{compte: cpt, libelle: lib, debit: String(ht), credit: ""}, {compte: tiers, libelle: lib, debit: "", credit: String(ttc)}];
-      if (tva) F.lignes.splice(vente ? 2 : 1, 0, vente ? {compte: "4431", libelle: lib, debit: "", credit: String(tva)} : {compte: "4452", libelle: lib, debit: String(tva), credit: ""});
+      if (tva) F.lignes.splice(vente ? 2 : 1, 0, vente ? {compte: tx.collectee || "4431", libelle: lib, debit: "", credit: String(tva)} : {compte: tx.deductible || "4452", libelle: lib, debit: String(tva), credit: ""});
       if (F.journal === "OD") { F.journal = vente ? "VE" : "AC"; $("#f-journal").value = F.journal; }
       this.drawLines(); toast("Lignes générées : vérifiez puis enregistrez.");
     };
@@ -1066,15 +1098,20 @@ const IMP_TYPES = {
     fields: {date: "Date d'acquisition", piece: "N° facture", libelle: "Désignation", compte: "Compte d'immobilisation", tiers: "Fournisseur", ht: "Valeur HT", tva: "TVA", ttc: "Montant TTC", duree: "Durée (années)"},
     need: ["date"], needOne: ["ht", "ttc"], nums: ["ht", "tva", "ttc", "duree"], opts: {compte: "2441", tiers: "481", tvaAcc: "4451", taux: 19, duree: 5}},
   ecritures: {label: "Écritures / OD", journal: "OD", desc: "Écritures déjà ventilées (export d'un autre logiciel, grand livre, opérations diverses) : une ligne par compte, regroupées par pièce ; à défaut, jusqu'à l'équilibre.",
-    fields: {date: "Date", journal: "Journal", piece: "N° pièce", compte: "Compte", libelle: "Libellé", debit: "Débit", credit: "Crédit", montant: "Montant signé"},
-    need: ["date", "compte"], needOne: ["debit", "credit", "montant"], nums: ["debit", "credit"], opts: {}}
+    fields: {date: "Date", journal: "Journal", piece: "N° pièce", compte: "Compte", compteLib: "Intitulé du compte", libelle: "Libellé", debit: "Débit", credit: "Crédit", montant: "Montant signé", lettre: "Lettrage"},
+    need: ["date", "compte"], needOne: ["debit", "credit", "montant"], nums: ["debit", "credit"], opts: {creer: true}},
+  plan: {label: "Plan comptable", journal: "", desc: "Liste de comptes (numéro, intitulé), par exemple exportée de Sage : les comptes absents sont créés, les intitulés différents sont mis à jour pour ce dossier.",
+    fields: {compte: "Numéro de compte", libelle: "Intitulé"}, need: ["compte", "libelle"], needOne: [], nums: [], opts: {}},
+  tiers: {label: "Plan tiers", journal: "", desc: "Liste de clients ou de fournisseurs : chaque tiers reçoit un sous-compte (4111…, 4011…) ; le numéro du fichier est repris s'il est fourni.",
+    fields: {compte: "Numéro de compte", libelle: "Nom ou raison sociale", ttype: "Type (client, fournisseur)", nif: "NIF", tel: "Téléphone", adresse: "Adresse"}, need: ["libelle"], needOne: [], nums: [], opts: {racine: "client"}}
 };
 const HEAD_RE = {
-  date: /^date|^jour|^mois|^periode|date (op|fact|acq|piece|ecr)/, libelle: /libel|designation|description|intitule|operation|narration|motif|nature|objet/,
-  piece: /piece|facture|fact\b|^ref|reference|numero|^n ?°|^no\b|^num|bon/, debit: /debit|sortie|retrait|decaiss|depense/, credit: /credit|entree|depot|versement|encaiss|recette/,
+  date: /^date|^jour$|^jour |^mois|^periode|date (op|fact|acq|piece|ecr)|ecrituredate/, libelle: /libel|designation|description|intitule|operation|narration|motif|nature|objet|ecriturelib|^nom|raison sociale/,
+  compteLib: /comptelib|intitule (du )?compte|libelle (du )?compte/, lettre: /ecriturelet|^lettr|^let$/, ttype: /^type|categorie|famille/, nif: /\bnif\b|identifiant fiscal|\bifu\b/, tel: /^tel|telephone|phone|mobile|portable/, adresse: /adresse|ville|quartier|localite/,
+  piece: /ecriturenum|piece|facture|fact\b|^ref|reference|numero|^n ?°|^no\b|^num|bon/, debit: /debit|sortie|retrait|decaiss|depense/, credit: /credit|entree|depot|versement|encaiss|recette/,
   montant: /^montant$|montant signe|amount|^valeur$/, contre: /contrepartie|imputation|compte contre/, compteTiers: /compte (client|fournisseur|tiers)|code (client|fournisseur|tiers)/,
   tiers: /client|fournisseur|tiers|beneficiaire|raison sociale/, ht: /\bht\b|hors tax|^base|valeur ht|montant ht/, tva: /^tva|\btva\b|taxe sur la valeur/, ttc: /ttc|toutes taxes|^total$|net a payer/,
-  compte: /^compte|^cpt|n ?° ?compte|compte (de )?(produit|charge|immo|general|comptable)|^imputation/, journal: /journal|^jnl|code j/, nom: /^nom|salarie|employe|agent|personnel/,
+  compte: /comptenum|^compte|^cpt|n ?° ?compte|numero (de )?compte|compte (de )?(produit|charge|immo|general|comptable)|^imputation|code (client|fournisseur|tiers)/, journal: /journal|^jnl|code j/, nom: /^nom|salarie|employe|agent|personnel/,
   brut: /brut/, cnssSal: /cnss|securite sociale|cotis/, its: /\bits\b|iuts|impot/, fssp: /fssp|effort|solidarite/, autres: /avance|retenue|pret|acompte|opposition/,
   net: /^net|net a payer|net paye/, patronal: /patronal|employeur|part pat|charges soc/, duree: /duree|annees|nb ans|amortiss/
 };
@@ -1118,6 +1155,8 @@ async function readFile(file) {
   const name = file.name, ext = (name.split(".").pop() || "").toLowerCase();
   Object.assign(IM, {file: name, rows: [], pdfLines: null, sheets: [], scanned: null, images: null, res: null, done: null, aiNote: ""});
   if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) { IM.fileType = "Image"; IM.images = [file]; return; }
+  if (["mae", "mdb", "bak", "sdf", "cpt", "gcm"].includes(ext)) { IM.fileType = "Base Sage"; IM.sage = true; return; }
+  IM.sage = false;
   const buf = await file.arrayBuffer();
   if (ext === "pdf") {
     IM.fileType = "PDF";
@@ -1184,7 +1223,7 @@ function splitCSV(line, d) {
 function looksLikeHeader(row) {
   if (!row) return false;
   const txt = row.map(c => strip(c)).join(" ");
-  const hits = ["date", "libel", "debit", "credit", "compte", "montant", "piece", "journal", "solde", "operation", "description", "designation", "ht", "ttc", "tva", "brut", "net", "client", "fournisseur", "salarie", "entree", "sortie"].filter(w => new RegExp("\\b" + w).test(txt)).length;
+  const hits = ["date", "libel", "debit", "credit", "compte", "montant", "piece", "journal", "solde", "operation", "description", "designation", "ht", "ttc", "tva", "brut", "net", "client", "fournisseur", "salarie", "entree", "sortie", "intitule", "nom", "nif", "telephone", "numero", "comptenum", "ecrituredate"].filter(w => new RegExp("\\b" + w).test(txt)).length;
   return hits >= 2 && !row.some(c => c instanceof Date);
 }
 function guessType() {
@@ -1194,6 +1233,8 @@ function guessType() {
   if (/(immobilisation|duree|amortiss)/.test(t)) return "immo";
   if (/\bht\b|ttc/.test(t)) return /fournisseur|achat/.test(t) ? "achats" : /client|vente/.test(t) ? "ventes" : null;
   if (/compte/.test(t) && /debit/.test(t) && /credit/.test(t)) return "ecritures";
+  if (/(client|fournisseur|tiers)/.test(t) && /(nif|tel|adresse|nom)/.test(t) && !/debit|credit|montant/.test(t)) return "tiers";
+  if (/compte/.test(t) && /intitule|libelle/.test(t) && !/debit|credit|montant/.test(t)) return "plan";
   if (/entree/.test(t) && /sortie/.test(t)) return "caisse";
   return null;
 }
@@ -1318,7 +1359,7 @@ function buildImport() {
   const accOr = (r, f, def) => { const a = normAcc(raw(r, f)); return a && accountValid(a) ? a : def; };
   const lineNo = k => base + k;
   const show = r => r.map(c => c instanceof Date ? fmtDate(parseDate(c)) : String(c ?? "")).filter(Boolean).join(" · ").slice(0, 140);
-  const rejects = [], props = [], seen = {};
+  const rejects = [], props = [], seen = {}, newAcc = new Map();
   const have = new Set(S.ecritures.map(e => e.id));
   const mk = (key, entry, src, extra = {}) => {
     seen[key] = (seen[key] || 0) + 1;
@@ -1398,6 +1439,27 @@ function buildImport() {
       add("421", 0, t.autres, "Avances et retenues"); add("422", 0, t.net, "Salaires nets à payer");
       mk(`${g.date}|${r2(t.brut)}|${r2(t.net)}|${g.n}`, {date: g.date, journal: "PA", piece: "", libelle: lib, lignes: L}, g.src);
     });
+  } else if (IM.type === "plan" || IM.type === "tiers") {
+    const accs = [], seenA = new Set(), used = new Set(Object.keys(S.comptes));
+    body.forEach((r, k) => {
+      if (blank(r)) return;
+      let num = normAcc(raw(r, "compte")); const lib = txt(r, "libelle");
+      if (!lib) return rej(k, r, "Intitulé ou nom absent");
+      let tiers = null;
+      if (IM.type === "tiers") {
+        const t = strip(txt(r, "ttype")), type = /fourn/.test(t) ? "fournisseur" : /client/.test(t) ? "client" : /sala|person/.test(t) ? "salarie" : num.startsWith("40") ? "fournisseur" : num.startsWith("41") ? "client" : O.racine;
+        tiers = {type, nif: txt(r, "nif"), tel: txt(r, "tel"), adresse: txt(r, "adresse")};
+        if (!num || !/^[1-9]\d{2,11}$/.test(num)) { const rac = TIERS_TYPES[type][0] + "1"; let n = 1; while (used.has(rac + String(n).padStart(3, "0")) || PLAN[rac + String(n).padStart(3, "0")]) n++; num = rac + String(n).padStart(3, "0"); }
+      }
+      if (!/^[1-9]\d{1,11}$/.test(num)) return rej(k, r, num ? `Numéro de compte invalide : ${num}` : "Numéro de compte absent");
+      if (seenA.has(num)) return rej(k, r, `Compte ${num} en double dans le fichier`);
+      seenA.add(num); used.add(num);
+      const cur = S.comptes[num] || PLAN[num];
+      const etat = !cur ? "nouveau" : strip(cur) === strip(lib) ? "identique" : PLAN[num] && !S.comptes[num] ? "standard" : "maj";
+      accs.push({num, lib, tiers, etat, line: lineNo(k), keep: etat === "nouveau" || etat === "maj" || (etat === "identique" && !!tiers)});
+    });
+    IM.res = {props: [], rejects, read: body.filter(r => !blank(r)).length, accounts: accs};
+    return;
   } else {
     const rows = [];
     body.forEach((r, k) => {
@@ -1409,17 +1471,20 @@ function buildImport() {
       if (ci("montant") >= 0) { const m = num(r, "montant"); if (m > 0) debit = m; else if (m < 0) credit = -m; }
       if (!compte && !debit && !credit) return rej(k, r, "Ligne sans compte ni montant (titre ou total)");
       if (!compte) return rej(k, r, "Compte absent");
-      if (!accountValid(compte)) return rej(k, r, `Compte ${compte} absent du plan comptable : ajoutez-le puis relancez`);
+      if (!accountValid(compte)) {
+        if (!(O.creer && /^[1-9]\d{1,11}$/.test(compte))) return rej(k, r, `Compte ${compte} absent du plan comptable : ajoutez-le, ou cochez « Créer les comptes absents »`);
+        if (!newAcc.has(compte)) newAcc.set(compte, txt(r, "compteLib") || "Compte importé " + compte);
+      }
       if (!debit && !credit) return rej(k, r, "Montant nul ou illisible");
       if (!d && !lastDate) return rej(k, r, ds ? `Date illisible : « ${String(ds).slice(0, 20)} »` : "Date absente");
-      rows.push({k, r, date: d || lastDate, journal: txt(r, "journal").toUpperCase().slice(0, 4) || T.journal, piece: txt(r, "piece"), compte, libelle: txt(r, "libelle"), debit: r2(debit), credit: r2(credit)});
+      rows.push({k, r, date: d || lastDate, journal: txt(r, "journal").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) || T.journal, piece: txt(r, "piece"), compte, libelle: txt(r, "libelle"), debit: r2(debit), credit: r2(credit), lettre: txt(r, "lettre")});
     });
     const hasPiece = ci("piece") >= 0;
     const groups = []; let g = null;
     rows.forEach(l => {
       const key = hasPiece ? `${l.journal}|${l.piece || l.date}` : null;
       if (!g || (hasPiece ? key !== g.key : r2(g.d - g.c) === 0)) { g = {key, date: l.date, journal: l.journal, piece: l.piece, lignes: [], rows: [], d: 0, c: 0}; groups.push(g); }
-      g.lignes.push({compte: l.compte, libelle: l.libelle, debit: l.debit, credit: l.credit}); g.rows.push(l); g.d = r2(g.d + l.debit); g.c = r2(g.c + l.credit);
+      g.lignes.push({compte: l.compte, libelle: l.libelle, debit: l.debit, credit: l.credit, ...(l.lettre ? {lettre: l.lettre} : {})}); g.rows.push(l); g.d = r2(g.d + l.debit); g.c = r2(g.c + l.credit);
     });
     groups.forEach(x => {
       if (x.d !== x.c || x.lignes.length < 2) { x.rows.forEach(l => rej(l.k, l.r, `Pièce ${x.piece || fmtDate(x.date)} déséquilibrée : débit ${fmt0(x.d)}, crédit ${fmt0(x.c)}`)); return; }
@@ -1430,7 +1495,7 @@ function buildImport() {
   const counts = {};
   props.forEach(p => { const j = p.entry.journal; counts[j] = counts[j] ?? S.ecritures.filter(e => e.journal === j).length; if (!p.entry.piece && !p.dup) p.entry.piece = `${j}-${String(++counts[j]).padStart(4, "0")}`; });
   const read = body.filter(r => !blank(r)).length;
-  IM.res = {props, rejects, read};
+  IM.res = {props, rejects, read, newAccounts: [...newAcc].map(([num, lib]) => ({num, lib}))};
 }
 function finalEntry(p) {
   if (IM.type !== "banque" && IM.type !== "caisse") return p.entry;
@@ -1503,7 +1568,8 @@ async function claudeReadDocument() {
 VIEWS.import = {
   title: "Importer des données",
   mount(el) {
-    el.innerHTML = `
+    const hint = IM.sageHint; IM.sageHint = false;
+    el.innerHTML = `${hint ? `<div class="alert" style="margin-bottom:14px"><b>Reprise d'une comptabilité Sage.</b> Le fichier .MAE de Sage ne se lit pas directement : exportez depuis Sage le fichier des écritures (FEC) ou un export texte ou Excel, puis déposez-le ci-dessous. Ordre conseillé : plan comptable, tiers, écritures. <a href="#aide">Procédure détaillée</a></div>` : ""}
     <div class="card">
       <div class="card-h"><div><h2>1. Type de données</h2><p>Choisissez ce que contient le fichier ; le type est aussi deviné à partir des en-têtes.</p></div>
         <button class="btn sm" id="im-tpl">Modèle Excel de ce type</button></div>
@@ -1511,10 +1577,10 @@ VIEWS.import = {
       <p class="note" id="type-help" style="margin-top:10px"></p>
       <label class="drop" id="drop" for="file" style="margin-top:12px">
         <b>Déposez un fichier ici ou touchez pour le choisir</b>
-        <span class="fmts"><span class="pill accent">Excel .xlsx .xls</span><span class="pill accent">PDF</span><span class="pill accent">CSV</span><span class="pill accent">TXT</span>${HAS_CLAUDE ? '<span class="pill accent">Photo de document</span>' : ""}</span>
+        <span class="fmts"><span class="pill accent">Excel .xlsx .xls</span><span class="pill accent">PDF</span><span class="pill accent">CSV</span><span class="pill accent">TXT</span><span class="pill accent">FEC · export Sage</span>${HAS_CLAUDE ? '<span class="pill accent">Photo de document</span>' : ""}</span>
         <span class="note" id="file-name">Le fichier est lu sur votre appareil ; seules les écritures que vous validez sont enregistrées.</span>
       </label>
-      <input type="file" id="file" accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt,.tsv,.prn,.png,.jpg,.jpeg,.webp" hidden>
+      <input type="file" id="file" accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt,.tsv,.prn,.fec,.mae,.png,.jpg,.jpeg,.webp" hidden>
     </div>
     <div id="im-body"></div>`;
     $$("[data-type]", el).forEach(b => b.onclick = () => { IM.type = b.dataset.type; IM.res = null; if (IM.rows.length) autoMap(); this.draw(el); });
@@ -1545,10 +1611,21 @@ VIEWS.import = {
       box.innerHTML = `<div class="card" style="margin-top:14px"><div class="card-h"><h2>Import terminé</h2><a class="btn primary" href="#ecritures">Voir les journaux</a></div>
         <div class="grid g4"><div class="kpi pos"><span>Écritures importées</span><b>${d.ok}</b><small>${esc(d.file)}</small></div><div class="kpi"><span>Déjà présentes</span><b>${d.dup}</b><small>Ignorées, sans doublon</small></div><div class="kpi ${d.rej ? "neg" : ""}"><span>Lignes rejetées</span><b>${d.rej}</b><small>Motif affiché ci-dessous</small></div><div class="kpi"><span>Hors exercice</span><b>${d.hors}</b><small>${d.hors ? "Visibles en élargissant la période" : "Toutes dans l'exercice"}</small></div></div>
         ${d.immos ? `<p class="note" style="margin-top:10px">${d.immos} bien(s) ajouté(s) au registre des immobilisations.</p>` : ""}
+        ${d.comptes ? `<p class="note" style="margin-top:10px">${d.comptes} compte(s) ajouté(s) ou mis à jour dans le plan. <a href="#${IM.type === "tiers" ? "tiers" : "plan"}">Les voir</a></p>` : ""}
         ${d.fail ? `<div class="alert bad" style="margin-top:10px">${d.fail} écriture(s) n'ont pas pu être enregistrées (connexion interrompue). Relancez l'import du même fichier : les écritures déjà enregistrées seront reconnues et ne seront pas dupliquées.</div>` : ""}
         <div class="btns" style="margin-top:14px"><button class="btn" id="im-again">Importer un autre fichier</button>${d.rej ? `<button class="btn" id="im-rejx">Télécharger les lignes rejetées</button>` : ""}</div></div>`;
       $("#im-again", box).onclick = () => { Object.assign(IM, {done: null, rows: [], res: null, file: null, scanned: null, images: null, pdfBuf: null}); this.draw(el); };
       const rx = $("#im-rejx", box); if (rx) rx.onclick = () => exportXlsx(`lignes-rejetees-${d.file}.xlsx`, [{name: "Rejets", rows: [["Ligne du fichier", "Contenu", "Motif"], ...d.rejects.map(x => [x.line, x.text, x.reason])]}]);
+      return;
+    }
+    if (IM.sage) {
+      box.innerHTML = `<div class="card" style="margin-top:14px"><div class="card-h"><div><h2>Fichier de base Sage (${esc(IM.file)})</h2><p>Ce fichier est la base de données propriétaire de Sage : il ne peut pas être lu sans Sage. Exportez les données depuis Sage, puis importez l'export ici.</p></div></div>
+        <ol class="prose" style="padding-left:20px;display:flex;flex-direction:column;gap:6px">
+          <li><b>Écritures</b> : dans Sage 100, exportez les écritures au format FEC (fichier des écritures comptables) ou au format texte paramétrable (menu Fichier → Exporter, selon votre version). Importez ensuite le fichier ici avec le type « Écritures / OD » : les colonnes du FEC sont reconnues automatiquement.</li>
+          <li><b>Plan comptable</b> : exportez la liste des comptes vers Excel (numéro, intitulé), puis importez-la avec le type « Plan comptable ».</li>
+          <li><b>Tiers</b> : exportez la liste des clients et fournisseurs vers Excel, puis importez-la avec le type « Plan tiers ».</li>
+          <li><b>À défaut</b> : exportez le grand-livre ou la balance vers Excel et importez avec le type « Écritures / OD ».</li></ol>
+        <p class="note" style="margin-top:8px">Importez dans cet ordre : plan comptable, tiers, puis écritures. À l'étape 3, filtrez la période et les journaux pour une reprise partielle.</p></div>`;
       return;
     }
     if (IM.scanned || IM.images) {
@@ -1571,10 +1648,12 @@ VIEWS.import = {
       achats: acc("compte", "Compte de charge par défaut") + acc("tiers", "Compte fournisseur par défaut") + acc("tvaAcc", "Compte de TVA récupérable"),
       immo: acc("compte", "Compte d'immobilisation par défaut") + acc("tiers", "Compte fournisseur d'investissements") + acc("tvaAcc", "Compte de TVA sur immobilisations"),
       paie: `<div class="field"><label for="o-date">Date de paie si absente du fichier</label><input class="input" type="date" id="o-date" data-o="date" value="${esc(O.date)}"></div>`,
-      ecritures: ""
+      ecritures: `<div class="field"><label for="o-creer">Comptes absents du plan</label><select class="input" id="o-creer" data-o="creer"><option value="1">Les créer avec l'intitulé du fichier</option><option value="0" ${O.creer ? "" : "selected"}>Rejeter les lignes concernées</option></select></div>`,
+      plan: "",
+      tiers: `<div class="field"><label for="o-racine">Type par défaut</label><select class="input" id="o-racine" data-o="racine">${Object.entries(TIERS_TYPES).map(([k, v]) => `<option value="${k}" ${O.racine === k ? "selected" : ""}>${v[1]} (${v[0]})</option>`).join("")}</select></div>`
     }[IM.type];
     const extra = (IM.type === "banque" || IM.type === "caisse") ? `<div class="field"><label for="o-sens">Sens des colonnes Débit et Crédit</label><select class="input" id="o-sens" data-o="sens"><option value="banque">Vu par la banque (débit = sortie)</option><option value="entreprise" ${O.sens === "entreprise" ? "selected" : ""}>Vu par l'entreprise (débit = entrée)</option></select></div>`
-      : ["ventes", "achats", "immo"].includes(IM.type) ? `<div class="field"><label for="o-taux">TVA si non fournie</label><select class="input" id="o-taux" data-o="taux"><option value="19">19 %</option><option value="0" ${+O.taux === 0 ? "selected" : ""}>0 % (exonéré)</option></select></div>` + (IM.type === "immo" ? `<div class="field"><label for="o-duree">Durée par défaut (années)</label><input class="input num" id="o-duree" data-o="duree" value="${esc(O.duree)}"></div>` : "") : "";
+      : ["ventes", "achats", "immo"].includes(IM.type) ? `<div class="field"><label for="o-taux">TVA si non fournie</label><select class="input" id="o-taux" data-o="taux">${taxes().map(t => `<option value="${t.taux}" ${+O.taux === +t.taux ? "selected" : ""}>${esc(t.libelle)} (${String(t.taux).replace(".", ",")} %)</option>`).join("")}</select></div>` + (IM.type === "immo" ? `<div class="field"><label for="o-duree">Durée par défaut (années)</label><input class="input num" id="o-duree" data-o="duree" value="${esc(O.duree)}"></div>` : "") : "";
     box.innerHTML = `
     <div class="card" style="margin-top:14px">
       <div class="card-h"><div><h2>2. Associer les colonnes</h2><p>Vérifiez la donnée de chaque colonne. Les colonnes « Ignorer » ne sont pas reprises.</p></div>
@@ -1598,7 +1677,7 @@ VIEWS.import = {
     const hd = $("#im-head", box); if (hd) hd.onchange = () => { IM.header = hd.checked; autoMap(); IM.res = null; this.draw(el); };
     const sh = $("#im-sheet", box); if (sh) sh.onchange = () => { IM.sheet = sh.value; loadSheet(); afterRows(); IM.res = null; this.draw(el); };
     $$("[data-pm]", box).forEach(b => b.onclick = () => { IM.pdfMode = b.dataset.pm; applyPdfMode(); afterRows(); IM.res = null; this.draw(el); });
-    $$("[data-o]", box).forEach(x => x.onchange = () => { const k = x.dataset.o; O[k] = ["date", "sens"].includes(k) ? x.value : k === "taux" || k === "duree" ? +x.value || 0 : normAcc(x.value); IM.res = null; const r = $("#im-res", box); if (r) r.innerHTML = ""; });
+    $$("[data-o]", box).forEach(x => x.onchange = () => { const k = x.dataset.o; O[k] = ["date", "sens", "racine"].includes(k) ? x.value : k === "creer" ? x.value === "1" : k === "taux" || k === "duree" ? +x.value || 0 : normAcc(x.value); IM.res = null; const r = $("#im-res", box); if (r) r.innerHTML = ""; });
     const ai = $("#im-ai", box); if (ai) ai.onclick = claudeMapColumns;
     $("#im-prev", box).onclick = () => {
       const miss = T.need.filter(f => !IM.map.includes(f)).map(f => fields[f]);
@@ -1611,8 +1690,28 @@ VIEWS.import = {
     };
     if (IM.res) this.drawResult(el);
   },
+  drawAccounts(el) {
+    const box = $("#im-res", el), R = IM.res, A = R.accounts;
+    const lbl = {nouveau: '<span class="pill good">Nouveau</span>', maj: '<span class="pill ochre">Intitulé modifié</span>', identique: '<span class="pill">Identique</span>', standard: '<span class="pill">Compte SYSCOHADA : intitulé remplacé pour ce dossier</span>'};
+    box.innerHTML = `<div class="card" style="margin-top:14px"><div class="card-h"><div><h2>3. Contrôle avant import</h2><p>${A.length} compte(s) lus, ${A.filter(a => a.etat === "nouveau").length} nouveau(x), ${R.rejects.length} ligne(s) rejetée(s).</p></div>
+        <button class="btn primary" id="im-go" ${A.length ? "" : "disabled"}>Importer les comptes cochés</button></div>
+      ${R.rejects.length ? `<details style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600;color:var(--bad)">Voir les ${R.rejects.length} ligne(s) rejetée(s)</summary><div class="tbl-wrap" style="margin-top:8px;max-height:240px;overflow:auto"><table class="t"><tbody>${R.rejects.map(x => `<tr><td class="num">${x.line}</td><td>${esc(x.text)}</td><td style="color:var(--bad)">${esc(x.reason)}</td></tr>`).join("")}</tbody></table></div></details>` : ""}
+      <div class="tbl-wrap" style="max-height:480px;overflow:auto"><table class="t"><thead><tr><th></th><th>Compte</th><th>Intitulé</th>${IM.type === "tiers" ? "<th>Type</th><th>NIF</th>" : ""}<th>État</th></tr></thead><tbody>
+      ${A.map((a, i) => `<tr><td><input type="checkbox" class="chk" data-ka="${i}" ${a.keep ? "checked" : ""} aria-label="Importer"></td><td class="acc">${esc(a.num)}</td><td>${esc(a.lib)}${a.etat === "maj" || a.etat === "standard" ? `<div class="acc-lbl">Actuel : ${esc(labelOf(a.num))}</div>` : ""}</td>${IM.type === "tiers" ? `<td>${esc(TIERS_TYPES[a.tiers.type][1])}</td><td class="acc">${esc(a.tiers.nif)}</td>` : ""}<td>${lbl[a.etat]}</td></tr>`).join("")}
+      </tbody></table></div><p class="note" id="im-prog" style="margin-top:8px"></p></div>`;
+    $$("[data-ka]", box).forEach(c => c.onchange = () => { A[+c.dataset.ka].keep = c.checked; });
+    $("#im-go", box).onclick = async () => {
+      const sel = A.filter(a => a.keep); if (!sel.length) return toast("Cochez au moins un compte.", "bad");
+      $("#im-go", box).disabled = true;
+      const ok = await guard(async () => { let n = 0; for (const a of sel) { await Store.saveAccountX({num: a.num, lib: a.lib, ...(a.tiers ? {tiers: a.tiers} : {})}); if (++n % 25 === 0) $("#im-prog", box).textContent = `Enregistrement : ${n} / ${sel.length}`; } }, `${sel.length} compte(s) importé(s).`);
+      if (ok) { IM.done = {file: IM.file, ok: 0, fail: 0, dup: 0, rej: R.rejects.length, rejects: R.rejects, immos: 0, hors: 0, comptes: sel.length}; this.draw(el); } else $("#im-go", box).disabled = false;
+    };
+  },
   drawResult(el) {
+    if (IM.res && IM.res.accounts) return this.drawAccounts(el);
     const box = $("#im-res", el), R = IM.res, cash = IM.type === "banque" || IM.type === "caisse";
+    const jCodes = [...new Set(R.props.map(p => p.entry.journal))].sort();
+    if (!R.f) R.f = {from: "", to: "", j: new Set(jCodes)};
     const ready = R.props.filter(p => !p.dup), dups = R.props.length - ready.length;
     const total = ready.reduce((s, p) => s + (cash ? Math.abs(p.montant) : totalsOf(p.entry).d), 0);
     const {from, to} = exo(), hors = ready.filter(p => (from && p.entry.date < from) || (to && p.entry.date > to)).length;
@@ -1626,6 +1725,11 @@ VIEWS.import = {
         <div class="kpi"><span>Déjà importées</span><b>${dups}</b><small>Reconnues, non dupliquées</small></div>
         <div class="kpi ${R.rejects.length ? "neg" : ""}"><span>Lignes rejetées</span><b>${R.rejects.length}</b><small>${R.rejects.length ? "Motifs ci-dessous" : "Aucune"}</small></div>
       </div>
+      ${R.props.length > 1 ? `<details style="margin-bottom:10px" ${R.f.from || R.f.to || R.f.j.size < jCodes.length ? "open" : ""}><summary style="cursor:pointer;font-weight:600">Import partiel : filtrer la période et les journaux</summary>
+        <div class="form-row" style="margin-top:8px"><div class="field"><label for="if-from">Importer à partir du</label><input type="date" class="input" id="if-from" value="${esc(R.f.from)}"></div><div class="field"><label for="if-to">Jusqu'au</label><input type="date" class="input" id="if-to" value="${esc(R.f.to)}"></div>
+        <div class="field" style="grid-column:span 2"><label>Journaux</label><div class="btns">${jCodes.map(j => `<label class="btn sm" style="cursor:pointer"><input type="checkbox" class="chk" data-fj="${esc(j)}" ${R.f.j.has(j) ? "checked" : ""}> ${esc(j)}${JOURNAUX[j] ? "" : " (nouveau)"}</label>`).join("")}</div></div></div>
+        <p class="note">${R.props.filter(p => p.keep && !p.dup).length} écriture(s) retenue(s) avec ces filtres.</p></details>` : ""}
+      ${R.newAccounts && R.newAccounts.length ? `<div class="alert" style="margin-bottom:10px">${R.newAccounts.length} compte(s) absent(s) du plan seront créés : ${R.newAccounts.slice(0, 8).map(a => esc(a.num + " " + a.lib)).join(" · ")}${R.newAccounts.length > 8 ? " …" : ""}</div>` : ""}
       ${hors ? `<div class="alert" style="margin-bottom:10px">${hors} écriture(s) sont datées hors de l'exercice ${fmtDate(from)} – ${fmtDate(to)}. Elles seront bien importées ; élargissez la période des journaux pour les voir.</div>` : ""}
       ${R.rejects.length ? `<details style="margin-bottom:12px" ${ready.length ? "" : "open"}><summary style="cursor:pointer;font-weight:600;color:var(--bad)">Voir les ${R.rejects.length} ligne(s) rejetée(s) et leur motif</summary>
         <div class="tbl-wrap" style="margin-top:8px;max-height:260px;overflow:auto"><table class="t"><thead><tr><th class="num">Ligne</th><th>Contenu</th><th>Motif</th></tr></thead><tbody>
@@ -1639,6 +1743,10 @@ VIEWS.import = {
         </tbody></table></div>` : `<div class="alert bad">Aucune écriture n'a pu être préparée : consultez les motifs de rejet, corrigez l'association des colonnes ou le fichier, puis recommencez.</div>`}
       <p class="note" id="im-prog" style="margin-top:8px"></p></div>`;
     $$("[data-keep]", box).forEach(c => c.onchange = () => { R.props[+c.dataset.keep].keep = c.checked; });
+    const applyF = () => { R.props.forEach(p => { if (p.dup) return; const d = p.entry.date; p.keep = (!R.f.from || d >= R.f.from) && (!R.f.to || d <= R.f.to) && R.f.j.has(p.entry.journal); }); this.drawResult(el); };
+    const ff = $("#if-from", box), ft = $("#if-to", box);
+    if (ff) { ff.onchange = () => { R.f.from = ff.value; applyF(); }; ft.onchange = () => { R.f.to = ft.value; applyF(); }; }
+    $$("[data-fj]", box).forEach(c => c.onchange = () => { c.checked ? R.f.j.add(c.dataset.fj) : R.f.j.delete(c.dataset.fj); applyF(); });
     const all = $("#im-all", box); if (all) all.onchange = e => { R.props.forEach(p => { if (!p.dup) p.keep = e.target.checked; }); $$("[data-keep]", box).forEach(c => c.checked = e.target.checked); };
     $$("[data-contre]", box).forEach(c => c.oninput = () => { const p = R.props[+c.dataset.contre]; p.contre = normAcc(c.value); const l = labelOf(p.contre); const lb = c.nextElementSibling; lb.textContent = l || "Compte absent du plan"; lb.classList.toggle("bad", !l); });
     $("#im-go", box).onclick = () => this.commit(el);
@@ -1650,6 +1758,10 @@ VIEWS.import = {
     const badC = sel.find(p => p.contre !== undefined && !accountValid(p.contre)); if (badC) return toast(`Contrepartie inconnue : ${badC.contre || "vide"} (${badC.lib}).`, "bad");
     IM.busy = true; const btn = $("#im-go", el); btn.disabled = true; const prog = $("#im-prog", el);
     const list = sel.map(finalEntry).map(e => ({...e, cree: new Date().toISOString()}));
+    // Comptes et journaux absents : créés avant les écritures, pour qu'aucune ligne ne reste orpheline.
+    for (const a of R.newAccounts || []) if (!S.comptes[a.num] && list.some(e => e.lignes.some(l => normAcc(l.compte) === a.num))) { try { await Store.saveAccountX({num: a.num, lib: a.lib}); } catch (e) {} }
+    const newJ = [...new Set(list.map(e => e.journal))].filter(j => !JOURNAUX[j]);
+    if (newJ.length) { const jj = {...(S.structure.journaux || {})}; newJ.forEach(j => { jj[j] = {libelle: "Journal importé " + j, nature: "general", compte: ""}; }); try { await Store.putStructure({...S.structure, journaux: jj}); } catch (e) {} }
     let ok = 0, fail = 0;
     // Enregistrement par lots : un échec n'arrête pas les autres, et les identifiants stables évitent tout doublon à la relance.
     for (let i = 0; i < list.length; i += 20) {
@@ -2444,7 +2556,7 @@ function mdLite(src) {
   const inl = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<i>$2</i>");
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    if (/^```/.test(l)) { const lang = l.slice(3).trim(); const buf = []; while (++i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i]); blocks.push(lang === "ecritures" ? `<div class="ai-ecr" data-json="${esc(buf.join("\n"))}"></div>` : `<pre class="ai-pre">${esc(buf.join("\n"))}</pre>`); continue; }
+    if (/^```/.test(l)) { const lang = l.slice(3).trim(); const buf = []; while (++i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i]); blocks.push(lang === "ecritures" ? `<div class="ai-ecr" data-json="${esc(buf.join("\n"))}"></div>` : lang === "actions" ? `<div class="ai-act" data-json="${esc(buf.join("\n"))}"></div>` : `<pre class="ai-pre">${esc(buf.join("\n"))}</pre>`); continue; }
     if (/^\s*\|/.test(l) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
       const row = s => s.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
       const h = row(l); i++; const rows = [];
@@ -2475,6 +2587,8 @@ Exercice : ${from} au ${to}. Date du jour : ${new Date().toISOString().slice(0, 
 Synthèse de l'exercice : CA ${r2(R.ca)} ; marge commerciale ${r2(R.marge)} ; valeur ajoutée ${r2(R.va)} ; EBE ${r2(R.ebe)} ; résultat d'exploitation ${r2(R.re)} ; résultat financier ${r2(R.rf)} ; HAO ${r2(R.hao)} ; résultat net ${r2(R.net)} ; charges totales ${r2(R.charges)} ; produits totaux ${r2(R.produits)}.
 TVA de l'exercice : facturée ${r2(R.tvaColl)}, récupérable ${r2(R.tvaDed)}, nette ${r2(R.tvaColl - R.tvaDed)}.
 Soldes cumulés à la fin de l'exercice : trésorerie (classe 5) ${r2(sumP(cum, ["5"], ["59"]))} ; clients 411 ${r2(sumP(cum, ["411"]))} ; fournisseurs 401 ${r2(-sumP(cum, ["401"]))} ; compte d'attente 471 ${r2(sumP(cum, ["471"]))}.
+Contrôles automatiques : ${runControles().filter(c => c.niveau !== "ok").map(c => c.titre + " : " + c.detail).join(" | ") || "aucune anomalie"}.
+Journaux : ${Object.entries(JOURNAUX).map(([k, v]) => k + " " + v).join(" ; ")}.
 Paies récentes :
 ${pers}
 BALANCE DE L'EXERCICE (compte;intitulé;débit;crédit;solde) :
@@ -2499,6 +2613,7 @@ const AI_TOOLS = [
     execute: i => S.bulletins.filter(b => b.periode === String(i.periode)).map(b => ({salarie: b.nom, charges: b.charges, brut: b.brut, baseCnss: b.baseCnss, cnss: b.cnssSal, rni: b.rni, its: b.its, fssp: b.eg, avance: b.avance, net: b.net, patronal: b.patronal}))}
 ];
 const AI_CHIPS = [
+  ["Contrôle expert", "Réalise un contrôle d'expert-comptable de ce dossier à partir des contrôles automatiques, de la balance et des soldes : anomalies, risques fiscaux (TVA, ITS, impôt sur les bénéfices), risques sociaux (CNSS), fiabilité des comptes. Classe par gravité et propose les corrections, avec les écritures."],
   ["Analyse financière", "Analyse la situation financière du dossier sur l'exercice : rentabilité, structure des charges, trésorerie, créances et dettes. Termine par 5 recommandations concrètes et chiffrées."],
   ["TVA du mois", "Prépare la situation de TVA du mois en cours : TVA facturée, TVA récupérable, TVA due ou crédit, les écritures de liquidation à passer et les points à vérifier avant la déclaration à la DGI."],
   ["Reclasser le 471", "Examine les lignes du compte d'attente 471 et propose pour chacune le compte définitif le plus probable, puis les écritures de reclassement."],
@@ -2536,6 +2651,7 @@ VIEWS.claude = {
     if (!AI.turns.length) { log.innerHTML = `<div class="empty"><h3>Aucune question pour l'instant</h3><p>Choisissez une suggestion ci-dessus ou écrivez votre question. Claude peut proposer des écritures que vous vérifiez avant de les enregistrer.</p></div>`; return; }
     log.innerHTML = AI.turns.map((t, i) => t.role === "user" ? `<div class="ai-msg me">${esc(t.content)}</div>` : `<div class="ai-msg bot" data-i="${i}">${mdLite(t.content)}</div>`).join("");
     $$(".ai-ecr", log).forEach(renderProposals);
+    $$(".ai-act", log).forEach(renderActions);
     log.scrollTop = log.scrollHeight;
   },
   async ask(q) {
@@ -2547,7 +2663,7 @@ VIEWS.claude = {
     $("#ai-send").disabled = true; $("#ai-stop").hidden = false;
     AI.ctl = new AbortController();
     const lim = await sample.limits().catch(() => null);
-    const input = [{role: "user", content: AI_RULES + "\n\n" + aiDossier()}, {role: "assistant", content: "Bien reçu. Je m'appuie sur ce dossier pour répondre."}, ...AI.turns.slice(-12)];
+    const input = [{role: "user", content: AI_RULES + "\nPour paramétrer le logiciel à la demande de l'utilisateur (ajouter un journal, un compte ou un tiers, un taux de taxe, une commande au menu « Mes commandes »), ajoute à la fin un bloc de code dont la langue est « actions », contenant un tableau JSON d'actions ; l'utilisateur les appliquera lui-même.\n" + ACTION_DOC + "\n\n" + aiDossier()}, {role: "assistant", content: "Bien reçu. Je m'appuie sur ce dossier pour répondre."}, ...AI.turns.slice(-12)];
     const opts = {signal: AI.ctl.signal, cache: false, modelTier: AI.tier, onText: ({text}) => { bubble.innerHTML = mdLite(text); log.scrollTop = log.scrollHeight; }};
     if (lim && lim.tools) { delete opts.cache; opts.tools = AI_TOOLS.map(t => ({...t, execute: (inp) => { bubble.dataset.tool = t.name; return t.execute(inp || {}); }})); }
     try {
@@ -2584,6 +2700,494 @@ function renderProposals(box) {
     if (await guard(() => Store.putMany("ecritures", entries), `${entries.length} écriture(s) enregistrée(s).`)) { sa.disabled = true; sa.textContent = "Enregistrées"; }
   });
 }
+
+/* ============ Structure : journaux, taxes, tiers, commandes ============ */
+const JOURNAUX_BASE = {...JOURNAUX};
+const NATURES = {achats: "Achats", ventes: "Ventes", tresorerie: "Trésorerie", general: "Général", paie: "Paie", situation: "Situation (à-nouveaux)"};
+const NATURE_BASE = {AC: "achats", VE: "ventes", BQ: "tresorerie", CA: "tresorerie", OD: "general", PA: "paie", AN: "situation"};
+const DEF_TAXES = [
+  {code: "TVA19", libelle: "TVA taux normal", taux: 19, collectee: "4431", deductible: "4452"},
+  {code: "EXO", libelle: "Exonéré de TVA", taux: 0, collectee: "4431", deductible: "4452"}
+];
+const DEF_STRUCT = () => ({journaux: {}, taxes: DEF_TAXES.map(t => ({...t})), commandes: []});
+function applyStructure() {
+  Object.keys(JOURNAUX).forEach(k => delete JOURNAUX[k]);
+  Object.assign(JOURNAUX, JOURNAUX_BASE);
+  Object.entries(S.structure.journaux || {}).forEach(([k, j]) => { JOURNAUX[k] = j.libelle; });
+  if (typeof renderMenus === "function") renderMenus();
+}
+const taxes = () => (S.structure.taxes && S.structure.taxes.length ? S.structure.taxes : DEF_TAXES);
+function saveStructure(patch) {
+  const next = {...S.structure, ...patch};
+  return guard(() => Store.putStructure(next));
+}
+
+VIEWS.journaux = {
+  title: "Codes journaux",
+  mount(el) {
+    el.innerHTML = `<div class="card"><div class="card-h"><div><h2>Créer ou modifier un journal</h2><p>Un journal regroupe les écritures d'une même nature : une banque par journal, une caisse par journal.</p></div></div>
+      <div class="form-row">
+        <div class="field"><label for="jn-code">Code (2 à 4 lettres)</label><input class="input mono" id="jn-code" maxlength="4" placeholder="Ex. BOA"></div>
+        <div class="field" style="grid-column:span 2"><label for="jn-lib">Intitulé</label><input class="input" id="jn-lib" placeholder="Ex. Banque BOA Niger"></div>
+        <div class="field"><label for="jn-nat">Nature</label><select class="input" id="jn-nat">${Object.entries(NATURES).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+        <div class="field"><label for="jn-cpt">Compte de trésorerie</label><input class="input mono" id="jn-cpt" list="dl-comptes" placeholder="Ex. 5211"></div>
+      </div>
+      <div class="btns" style="margin-top:12px;justify-content:flex-end"><button class="btn primary" id="jn-save">Enregistrer le journal</button></div></div>
+      <div class="card" style="margin-top:14px"><div id="jn-list"></div></div>`;
+    $("#jn-save").onclick = async () => {
+      const code = $("#jn-code").value.trim().toUpperCase(), lib = $("#jn-lib").value.trim(), nat = $("#jn-nat").value, cpt = normAcc($("#jn-cpt").value);
+      if (!/^[A-Z][A-Z0-9]{1,3}$/.test(code)) return toast("Le code compte 2 à 4 caractères et commence par une lettre.", "bad");
+      if (!lib) return toast("Indiquez l'intitulé du journal.", "bad");
+      if (JOURNAUX_BASE[code]) return toast("Ce code est un journal standard : choisissez un autre code.", "bad");
+      if (cpt && !accountValid(cpt)) return toast("Le compte de trésorerie est absent du plan comptable.", "bad");
+      const j = {...(S.structure.journaux || {})}; j[code] = {libelle: lib, nature: nat, compte: cpt};
+      if (await saveStructure({journaux: j})) { toast(`Journal ${code} enregistré.`); ["jn-code", "jn-lib", "jn-cpt"].forEach(i => $("#" + i).value = ""); }
+    };
+  },
+  update(el) {
+    const box = $("#jn-list", el); if (!box) return;
+    const used = {}; S.ecritures.forEach(e => used[e.journal] = (used[e.journal] || 0) + 1);
+    const custom = S.structure.journaux || {};
+    box.innerHTML = `<div class="tbl-wrap"><table class="t"><thead><tr><th>Code</th><th>Intitulé</th><th>Nature</th><th>Compte</th><th class="num">Écritures</th><th></th></tr></thead><tbody>
+      ${Object.keys(JOURNAUX).sort().map(k => { const c = custom[k]; return `<tr><td><span class="jr">${esc(k)}</span></td><td>${esc(JOURNAUX[k])}</td><td>${NATURES[c ? c.nature : NATURE_BASE[k]] || ""}</td><td class="acc">${esc(c ? c.compte || "" : k === "BQ" ? "521" : k === "CA" ? "571" : "")}</td><td class="num">${used[k] || ""}</td>
+        <td>${c ? (used[k] ? '<span class="note">Utilisé</span>' : `<button class="btn sm danger" data-rmj="${esc(k)}">Supprimer</button>`) : '<span class="pill">Standard</span>'}</td></tr>`; }).join("")}
+      </tbody></table></div>`;
+    $$("[data-rmj]", box).forEach(b => armDelete(b, () => { const j = {...custom}; delete j[b.dataset.rmj]; saveStructure({journaux: j}); }));
+  }
+};
+
+VIEWS.taxes = {
+  title: "Taux de taxes",
+  mount(el) {
+    el.innerHTML = `<div class="card"><div class="card-h"><div><h2>Ajouter un taux</h2><p>Les taux servent à la facture assistée et à l'import des ventes et des achats.</p></div></div>
+      <div class="form-row">
+        <div class="field"><label for="tx-code">Code</label><input class="input mono" id="tx-code" maxlength="8" placeholder="Ex. TVA10"></div>
+        <div class="field" style="grid-column:span 2"><label for="tx-lib">Intitulé</label><input class="input" id="tx-lib"></div>
+        <div class="field"><label for="tx-taux">Taux (%)</label><input class="input num" id="tx-taux" inputmode="decimal"></div>
+        <div class="field"><label for="tx-c">Compte de TVA facturée</label><input class="input mono" id="tx-c" list="dl-comptes" value="4431"></div>
+        <div class="field"><label for="tx-d">Compte de TVA récupérable</label><input class="input mono" id="tx-d" list="dl-comptes" value="4452"></div>
+      </div>
+      <div class="btns" style="margin-top:12px;justify-content:flex-end"><button class="btn primary" id="tx-save">Enregistrer le taux</button></div></div>
+      <div class="card" style="margin-top:14px"><div id="tx-list"></div></div>`;
+    $("#tx-save").onclick = async () => {
+      const t = {code: $("#tx-code").value.trim().toUpperCase(), libelle: $("#tx-lib").value.trim(), taux: parseAmount($("#tx-taux").value), collectee: normAcc($("#tx-c").value), deductible: normAcc($("#tx-d").value)};
+      if (!t.code || !t.libelle || t.taux === null || t.taux < 0 || t.taux > 100) return toast("Indiquez le code, l'intitulé et un taux entre 0 et 100.", "bad");
+      if (!accountValid(t.collectee) || !accountValid(t.deductible)) return toast("Vérifiez les comptes de TVA.", "bad");
+      const list = taxes().filter(x => x.code !== t.code).concat([t]);
+      if (await saveStructure({taxes: list})) { toast(`Taux ${t.code} enregistré.`); ["tx-code", "tx-lib", "tx-taux"].forEach(i => $("#" + i).value = ""); }
+    };
+  },
+  update(el) {
+    const box = $("#tx-list", el); if (!box) return;
+    box.innerHTML = `<div class="tbl-wrap"><table class="t"><thead><tr><th>Code</th><th>Intitulé</th><th class="num">Taux</th><th>TVA facturée</th><th>TVA récupérable</th><th></th></tr></thead><tbody>
+      ${taxes().map(t => `<tr><td class="acc">${esc(t.code)}</td><td>${esc(t.libelle)}</td><td class="num">${String(t.taux).replace(".", ",")} %</td><td class="acc">${esc(t.collectee)}</td><td class="acc">${esc(t.deductible)}</td><td>${taxes().length > 1 ? `<button class="btn sm danger" data-rmt="${esc(t.code)}">Supprimer</button>` : ""}</td></tr>`).join("")}
+      </tbody></table></div><p class="note" style="margin-top:8px">Taux normal de la TVA au Niger : 19 %. Vérifiez les taux particuliers auprès de la DGI avant de les créer.</p>`;
+    $$("[data-rmt]", box).forEach(b => armDelete(b, () => saveStructure({taxes: taxes().filter(x => x.code !== b.dataset.rmt)})));
+  }
+};
+
+const TIERS_TYPES = {client: ["411", "Client"], fournisseur: ["401", "Fournisseur"], salarie: ["421", "Salarié"], autre: ["471", "Autre tiers"]};
+VIEWS.tiers = {
+  title: "Plan tiers",
+  mount(el) {
+    el.innerHTML = `<div class="card"><div class="card-h"><div><h2>Nouveau tiers</h2><p>Chaque client ou fournisseur reçoit son propre sous-compte (ex. 4111001), utilisable en saisie, en import et en lettrage.</p></div></div>
+      <div class="form-row">
+        <div class="field"><label for="ti-type">Type</label><select class="input" id="ti-type">${Object.entries(TIERS_TYPES).map(([k, v]) => `<option value="${k}">${v[1]}</option>`).join("")}</select></div>
+        <div class="field" style="grid-column:span 2"><label for="ti-nom">Nom ou raison sociale</label><input class="input" id="ti-nom"></div>
+        <div class="field"><label for="ti-num">Numéro de compte</label><input class="input mono" id="ti-num" placeholder="Automatique"></div>
+        <div class="field"><label for="ti-nif">NIF</label><input class="input mono" id="ti-nif"></div>
+        <div class="field"><label for="ti-tel">Téléphone</label><input class="input" id="ti-tel" inputmode="tel"></div>
+        <div class="field" style="grid-column:span 2"><label for="ti-adr">Adresse</label><input class="input" id="ti-adr"></div>
+      </div>
+      <div class="btns" style="margin-top:12px;justify-content:flex-end"><button class="btn primary" id="ti-save">Créer le tiers</button></div></div>
+      <div class="card" style="margin-top:14px"><div class="form-row" style="margin-bottom:10px"><div class="field"><label for="ti-q">Rechercher</label><input class="input" id="ti-q" placeholder="Nom, compte, NIF"></div></div><div id="ti-list"></div></div>`;
+    $("#ti-q").oninput = () => this.update(el);
+    $("#ti-save").onclick = async () => {
+      const type = $("#ti-type").value, nom = $("#ti-nom").value.trim(); let num = normAcc($("#ti-num").value);
+      if (!nom) return toast("Indiquez le nom du tiers.", "bad");
+      const racine = TIERS_TYPES[type][0] + "1";
+      if (!num) { let n = 1; while (S.comptes[racine + String(n).padStart(3, "0")] || PLAN[racine + String(n).padStart(3, "0")]) n++; num = racine + String(n).padStart(3, "0"); }
+      if (!/^[1-9]\d{3,11}$/.test(num) || !labelOf(num)) return toast("Numéro de compte invalide.", "bad");
+      if (S.comptes[num] && !confirmOnce("ti-save", "Ce compte existe : cliquez de nouveau pour le mettre à jour.")) return;
+      const doc = {num, lib: nom, tiers: {type, nif: $("#ti-nif").value.trim(), tel: $("#ti-tel").value.trim(), adresse: $("#ti-adr").value.trim()}};
+      if (await guard(() => Store.saveAccountX(doc), `Tiers ${nom} créé : compte ${num}.`)) ["ti-nom", "ti-num", "ti-nif", "ti-tel", "ti-adr"].forEach(i => $("#" + i).value = "");
+    };
+  },
+  update(el) {
+    const box = $("#ti-list", el); if (!box) return;
+    const q = strip(($("#ti-q", el) || {}).value || "");
+    const bal = new Map(balanceOf("", "").map(r => [r.compte, r.d - r.c]));
+    const rows = Object.keys(S.comptes).filter(k => /^4[0-7]/.test(k)).map(k => ({num: k, lib: S.comptes[k], x: (S.comptesX[k] || {}).tiers || {}}))
+      .filter(r => !q || strip(r.num + " " + r.lib + " " + (r.x.nif || "")).includes(q)).sort((a, b) => a.num.localeCompare(b.num));
+    box.innerHTML = rows.length ? `<div class="tbl-wrap"><table class="t"><thead><tr><th>Compte</th><th>Nom</th><th>Type</th><th>NIF</th><th>Téléphone</th><th class="num">Solde</th><th></th></tr></thead><tbody>
+      ${rows.map(r => { const s = bal.get(r.num) || 0; return `<tr><td class="acc">${esc(r.num)}</td><td>${esc(r.lib)}</td><td>${esc((TIERS_TYPES[r.x.type] || ["", labelOf(r.num.slice(0, 3))])[1])}</td><td class="acc">${esc(r.x.nif || "")}</td><td>${esc(r.x.tel || "")}</td><td class="num">${s ? fmt0(Math.abs(s)) + (s > 0 ? " D" : " C") : ""}</td>
+        <td><div class="btns" style="flex-wrap:nowrap"><button class="btn sm" data-gl="${esc(r.num)}">Grand livre</button><button class="btn sm" data-lt="${esc(r.num)}">Lettrage</button></div></td></tr>`; }).join("")}
+      </tbody></table></div>` : emptyState("Aucun tiers", "Créez vos clients et fournisseurs ci-dessus, ou importez-les (Fichier → Importer, type « Plan tiers »).");
+    $$("[data-gl]", box).forEach(b => b.onclick = () => { GL.acc = b.dataset.gl; location.hash = "grandlivre"; });
+    $$("[data-lt]", box).forEach(b => b.onclick = () => { LT.acc = b.dataset.lt; location.hash = "lettrage"; });
+  }
+};
+const _confirms = {};
+function confirmOnce(key, msg) { if (_confirms[key] && Date.now() - _confirms[key] < 5000) { delete _confirms[key]; return true; } _confirms[key] = Date.now(); toast(msg); return false; }
+
+/* ============ Analyse et contrôles ============ */
+function runControles() {
+  const {from, to} = exo(), out = [];
+  const add = (id, titre, niveau, detail, rows = [], lien = null) => out.push({id, titre, niveau, detail, rows, lien});
+  const E = S.ecritures;
+  const deseq = E.filter(e => r2(totalsOf(e).d - totalsOf(e).c) !== 0);
+  add("equilibre", "Équilibre des écritures", deseq.length ? "bad" : "ok", deseq.length ? `${deseq.length} écriture(s) déséquilibrée(s).` : "Toutes les écritures sont équilibrées.", deseq.map(e => [fmtDate(e.date), e.journal, e.piece, e.libelle, fmt0(totalsOf(e).d - totalsOf(e).c)]), "ecritures");
+  const inconnus = new Map(); E.forEach(e => (e.lignes || []).forEach(l => { const c = normAcc(l.compte); if (!labelOf(c)) inconnus.set(c, (inconnus.get(c) || 0) + 1); }));
+  add("comptes", "Comptes absents du plan", inconnus.size ? "bad" : "ok", inconnus.size ? `${inconnus.size} compte(s) utilisé(s) sans intitulé dans le plan.` : "Tous les comptes utilisés existent.", [...inconnus].map(([c, n]) => [c, n + " ligne(s)"]), "plan");
+  const hors = E.filter(e => (from && e.date < from) || (to && e.date > to));
+  add("periode", "Écritures hors exercice", hors.length ? "warn" : "ok", hors.length ? `${hors.length} écriture(s) datée(s) hors de l'exercice ${fmtDate(from)} – ${fmtDate(to)}.` : "Toutes les écritures sont dans l'exercice.", hors.slice(0, 50).map(e => [fmtDate(e.date), e.journal, e.piece, e.libelle]), "ecritures");
+  const pieces = new Map(); E.forEach(e => { if (!e.piece) return; const k = e.journal + "|" + e.piece; pieces.set(k, (pieces.get(k) || 0) + 1); });
+  const dupP = [...pieces].filter(([, n]) => n > 1);
+  const sig = new Map(); E.forEach(e => { const k = [e.date, e.journal, r2(totalsOf(e).d), strip(e.libelle)].join("|"); sig.set(k, (sig.get(k) || []).concat([e])); });
+  const dupS = [...sig.values()].filter(l => l.length > 1);
+  add("doublons", "Doublons", dupP.length || dupS.length ? "warn" : "ok", dupP.length || dupS.length ? `${dupP.length} numéro(s) de pièce réutilisé(s), ${dupS.length} groupe(s) d'écritures identiques (date, journal, montant, libellé).` : "Aucun doublon détecté.",
+    [...dupP.map(([k, n]) => [k.replace("|", " · "), n + " écritures avec ce numéro"]), ...dupS.map(l => [fmtDate(l[0].date) + " · " + l[0].journal, l[0].libelle, fmt0(totalsOf(l[0]).d), l.length + " fois"])].slice(0, 50), "ecritures");
+  // Contrôle de caisse : le solde d'une caisse ne peut jamais être créditeur.
+  const caisses = new Set(); E.forEach(e => (e.lignes || []).forEach(l => { const c = normAcc(l.compte); if (c.startsWith("57")) caisses.add(c); }));
+  const negCaisse = [];
+  caisses.forEach(c => {
+    const mv = []; E.forEach(e => (e.lignes || []).forEach(l => { if (normAcc(l.compte) === c) mv.push([e.date, (+l.debit || 0) - (+l.credit || 0), e]); }));
+    mv.sort((a, b) => a[0].localeCompare(b[0])); let s = 0, flagged = false;
+    const days = new Map(); mv.forEach(([d, v]) => days.set(d, (days.get(d) || 0) + v));
+    [...days].sort((a, b) => a[0].localeCompare(b[0])).forEach(([d, v]) => { s += v; if (s < -0.004 && !flagged) { negCaisse.push([c, labelOf(c), fmtDate(d), fmt0(s)]); flagged = true; } });
+  });
+  add("caisse", "Contrôle de caisse", negCaisse.length ? "bad" : caisses.size ? "ok" : "info", negCaisse.length ? `${negCaisse.length} caisse(s) au solde créditeur : des sorties ont été saisies avant les entrées ou une recette manque.` : caisses.size ? "Aucune caisse n'a eu de solde créditeur." : "Aucun mouvement de caisse.", negCaisse, "grandlivre");
+  const cum = balanceOf("", to), bal = balanceOf(from, to);
+  const att = sumP(cum, ["471"]);
+  add("attente", "Compte d'attente 471", Math.abs(att) > .004 ? "warn" : "ok", Math.abs(att) > .004 ? `Solde de ${fmt0(att)} FCFA à reclasser avant la clôture.` : "Compte d'attente soldé.", [], "lettrage");
+  const inv = bal.filter(r => (r.compte[0] === "6" && r.c - r.d > .004 && !r.compte.startsWith("603")) || (r.compte[0] === "7" && r.d - r.c > .004 && !r.compte.startsWith("73")));
+  add("sens", "Comptes de gestion de sens anormal", inv.length ? "warn" : "ok", inv.length ? `${inv.length} compte(s) de charge créditeur(s) ou de produit débiteur(s) : vérifiez les extournes et les erreurs de sens.` : "Charges et produits ont un sens normal.", inv.map(r => [r.compte, labelOf(r.compte), fmt0(r.d - r.c)]), "balance");
+  const tiersInv = cum.filter(r => (r.compte.startsWith("41") && !r.compte.startsWith("419") && r.c - r.d > .004) || (r.compte.startsWith("40") && !r.compte.startsWith("409") && r.d - r.c > .004));
+  add("tiers", "Clients créditeurs et fournisseurs débiteurs", tiersInv.length ? "warn" : "ok", tiersInv.length ? `${tiersInv.length} compte(s) de tiers de sens inverse : avances, doubles règlements ou factures non saisies.` : "Aucun tiers de sens anormal.", tiersInv.map(r => [r.compte, labelOf(r.compte), fmt0(r.d - r.c)]), "lettrage");
+  const R = resultat(from, to), theo = r2(R.ca * 0.19), ecartTva = r2(R.tvaColl - theo);
+  add("tva", "Cohérence de la TVA facturée", R.ca && Math.abs(ecartTva) > Math.max(1000, theo * 0.05) ? "warn" : "ok", R.ca ? `TVA facturée ${fmt0(R.tvaColl)} pour un chiffre d'affaires de ${fmt0(R.ca)} : 19 % donnerait ${fmt0(theo)} (écart ${fmt0(ecartTva)}). Un écart peut venir d'opérations exonérées ou à d'autres taux.` : "Pas de chiffre d'affaires sur l'exercice.", [], "etats");
+  const old = []; const today = Date.now();
+  E.forEach(e => (e.lignes || []).forEach(l => { const c = normAcc(l.compte); if (/^4[01]/.test(c) && !l.lettre && (today - Date.parse(e.date)) / 864e5 > 90) old.push([c, fmtDate(e.date), e.piece, (l.libelle || e.libelle).slice(0, 60), fmt0((+l.debit || 0) - (+l.credit || 0))]); }));
+  add("echeances", "Créances et dettes de plus de 90 jours", old.length ? "warn" : "ok", old.length ? `${old.length} ligne(s) client ou fournisseur non lettrée(s) depuis plus de 90 jours.` : "Aucune ligne ancienne non lettrée.", old.slice(0, 50), "lettrage");
+  const dotId = "dot-" + to, immosAmort = S.immos.filter(im => amortissable(im.compte));
+  add("immos", "Amortissements de l'exercice", immosAmort.length && !S.ecritures.some(e => e.id === dotId) ? "warn" : "ok", !immosAmort.length ? "Aucune immobilisation amortissable au registre." : S.ecritures.some(e => e.id === dotId) ? "Dotations de l'exercice comptabilisées." : `${immosAmort.length} immobilisation(s) au registre, dotations de l'exercice non comptabilisées.`, [], "immos");
+  const per = new Date().toISOString().slice(0, 7);
+  const sansLib = E.filter(e => !String(e.libelle || "").trim() || !String(e.piece || "").trim());
+  add("pieces", "Libellés et numéros de pièce", sansLib.length ? "warn" : "ok", sansLib.length ? `${sansLib.length} écriture(s) sans libellé ou sans numéro de pièce : la piste d'audit est incomplète.` : "Toutes les écritures ont un libellé et une pièce.", sansLib.slice(0, 50).map(e => [fmtDate(e.date), e.journal, e.piece || "—", e.libelle || "—"]), "ecritures");
+  if (S.salaries.some(s => s.actif !== false)) add("paie", "Paie du mois", S.bulletins.some(b => b.periode === per) ? "ok" : "info", S.bulletins.some(b => b.periode === per) ? `Paie de ${moisLabel(per)} validée.` : `Paie de ${moisLabel(per)} non encore validée.`, [], "paie");
+  return out;
+}
+VIEWS.controles = {
+  title: "Analyse et contrôles",
+  mount(el) {
+    el.innerHTML = `<div class="card"><div class="card-h"><div><h2>Contrôles de cohérence</h2><p>Revue automatique du dossier : équilibre, plan comptable, période, doublons, caisse, compte d'attente, sens des soldes, TVA, échéances, amortissements, piste d'audit.</p></div>
+      <div class="btns"><button class="btn" id="ct-xls">Exporter (Excel)</button>${HAS_CLAUDE ? `<button class="btn primary" id="ct-ai">Faire analyser par Claude</button>` : ""}</div></div><div id="ct-res"></div></div>`;
+    $("#ct-xls").onclick = () => { const r = runControles(); exportXlsx(`controles-${new Date().toISOString().slice(0, 10)}.xlsx`, [{name: "Contrôles", rows: [["Contrôle", "Niveau", "Constat"], ...r.map(c => [c.titre, {ok: "Conforme", warn: "À vérifier", bad: "Anomalie", info: "Information"}[c.niveau], c.detail])]}]); };
+    const ai = $("#ct-ai"); if (ai) ai.onclick = () => { location.hash = "claude"; setTimeout(() => VIEWS.claude.ask("Voici les résultats des contrôles automatiques du dossier :\n" + runControles().map(c => `- ${c.titre} [${c.niveau}] : ${c.detail}`).join("\n") + "\n\nEn tant qu'expert-comptable, analyse ces constats, classe-les par gravité, explique les risques (fiscaux, sociaux, de fiabilité des comptes) et propose les corrections, avec les écritures nécessaires."), 300); };
+  },
+  update(el) {
+    const box = $("#ct-res", el); if (!box) return;
+    if (!S.ready || S.dbError) { box.innerHTML = loadingOr(""); return; }
+    const r = runControles(), n = k => r.filter(c => c.niveau === k).length;
+    const pill = {ok: '<span class="pill good">Conforme</span>', warn: '<span class="pill ochre">À vérifier</span>', bad: '<span class="pill bad">Anomalie</span>', info: '<span class="pill">Information</span>'};
+    box.innerHTML = `<div class="grid g3" style="margin-bottom:14px"><div class="kpi pos"><span>Conformes</span><b>${n("ok")}</b></div><div class="kpi"><span>À vérifier</span><b>${n("warn")}</b></div><div class="kpi ${n("bad") ? "neg" : ""}"><span>Anomalies</span><b>${n("bad")}</b></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px">${r.sort((a, b) => ({bad: 0, warn: 1, info: 2, ok: 3}[a.niveau] - {bad: 0, warn: 1, info: 2, ok: 3}[b.niveau])).map(c => `<details class="ctl ctl-${c.niveau}" ${c.niveau === "bad" ? "open" : ""}><summary><b>${esc(c.titre)}</b> ${pill[c.niveau]}<span class="note" style="flex:1 1 100%">${esc(c.detail)}</span></summary>
+        ${c.rows.length ? `<div class="tbl-wrap" style="margin-top:8px;max-height:260px;overflow:auto"><table class="t"><tbody>${c.rows.map(row => `<tr>${row.map(x => `<td>${esc(x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : ""}
+        ${c.lien ? `<p style="margin-top:8px"><a href="#${c.lien}">Ouvrir l'écran concerné</a></p>` : ""}</details>`).join("")}</div>`;
+  }
+};
+
+/* ============ Accueil, aide, à propos ============ */
+const ICONS = {
+  saisie: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>', journal: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
+  import: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/>', dossier: '<path d="M3 7h6l2 2h10v10H3z"/>', aide: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><path d="M12 17h.01"/>',
+  lettrage: '<path d="M4 7h10"/><path d="M4 12h16"/><path d="M4 17h8"/><path d="M17 4l3 3-3 3"/>', paie: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 11h5M18.5 8.5v5"/>',
+  immo: '<path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-6h4v6"/>', balance: '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 7h6z"/><path d="M19 7l-3 7h6z"/>',
+  grandlivre: '<path d="M4 5h16v14H4z"/><path d="M4 10h16M10 5v14"/>', bilan: '<path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/>', tva: '<path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>',
+  controle: '<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M8.5 12l2.5 2.5L16 9.5"/>', claude: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+  tableau: '<path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z"/>', tiers: '<circle cx="8" cy="9" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20a6 6 0 0 1 12 0M14 20a5 5 0 0 1 8 0"/>', calc: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h2M12 12h2M16 12v5M8 16h2M12 16h2"/>'
+};
+const ico = (k, s = 22) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] || ""}</svg>`;
+VIEWS.accueil = {
+  title: "Accueil",
+  mount(el) {
+    const tile = (k, l, h, d) => `<a class="tile" href="${h}">${ico(k, 26)}<b>${l}</b><span>${d}</span></a>`;
+    el.innerHTML = `
+      <section class="home-sec"><h2>Démarrer</h2><div class="tiles">
+        ${tile("dossier", "Dossier de la société", "#societe", "Identification, exercice, sauvegardes")}
+        ${tile("saisie", "Saisir une écriture", "#saisie", "Saisie au journal, facture assistée")}
+        ${tile("import", "Importer", "#import", "Excel, PDF, CSV, TXT, FEC, export Sage")}
+        ${tile("aide", "Mode d'emploi", "#aide", "Prise en main et passage depuis Sage")}
+      </div></section>
+      <section class="home-sec"><h2>Traiter</h2><div class="tiles">
+        ${tile("journal", "Journaux", "#ecritures", "Consulter, rechercher, modifier")}
+        ${tile("lettrage", "Lettrage", "#lettrage", "Rapprocher factures et règlements")}
+        ${tile("paie", "Paie", "#paie", "Bulletins CNSS, ITS, FSSP")}
+        ${tile("immo", "Immobilisations", "#immos", "Registre et dotations")}
+        ${tile("tiers", "Plan tiers", "#tiers", "Clients et fournisseurs")}
+      </div></section>
+      <section class="home-sec"><h2>États et contrôles</h2><div class="tiles">
+        ${tile("balance", "Balance", "#balance", "Balance générale à 6 colonnes")}
+        ${tile("grandlivre", "Grand-livre", "#grandlivre", "Mouvements et soldes par compte")}
+        ${tile("bilan", "Bilan et résultat", "#etats", "États de synthèse, TVA")}
+        ${tile("controle", "Analyse et contrôles", "#controles", "Anomalies, caisse, doublons")}
+        ${tile("tableau", "Rapport d'activité", "#tableau", "Indicateurs du dossier")}
+      </div></section>
+      ${HAS_CLAUDE ? `<section class="home-sec"><h2>Assistance experte</h2><div class="tiles">
+        ${tile("claude", "Demander à Claude", "#claude", "Analyse, expertise, contrôle, conseil")}
+        ${tile("claude", "Personnaliser avec Claude", "#perso", "Ajouter journaux, comptes, commandes")}
+      </div></section>` : ""}`;
+  },
+  update() {}
+};
+VIEWS.aide = {
+  title: "Mode d'emploi",
+  mount(el) {
+    el.innerHTML = `<div class="card prose">
+      <h2>Prise en main</h2>
+      <ol><li><b>Fichier → Dossier de la société</b> : raison sociale, NIF, RCCM, dates d'exercice.</li>
+        <li><b>Structure</b> : vérifiez le plan comptable SYSCOHADA, créez vos tiers, vos journaux (une banque par journal) et vos taux de taxes.</li>
+        <li><b>Traitement → Saisie</b> ou <b>Fichier → Importer</b> : enregistrez les opérations.</li>
+        <li><b>État</b> : journaux, grand-livre, balance, bilan, TVA ; <b>État → Analyse et contrôles</b> avant chaque clôture.</li></ol>
+      <h2>Raccourcis clavier</h2>
+      <table class="t" style="max-width:520px"><tbody>
+        <tr><td><b>F2</b></td><td>Nouvelle écriture</td></tr><tr><td><b>F3</b></td><td>Rechercher une écriture</td></tr><tr><td><b>F4</b></td><td>Importer</td></tr>
+        <tr><td><b>F9</b></td><td>Calculette</td></tr><tr><td><b>Alt + ←</b> / <b>Alt + →</b></td><td>Écran précédent / suivant</td></tr><tr><td><b>Échap</b></td><td>Fermer un menu ou la calculette</td></tr></tbody></table>
+      <h2>Reprendre une comptabilité tenue sous Sage 100</h2>
+      <p>Le fichier <code>.MAE</code> de Sage est une base de données propriétaire : il ne peut pas être lu sans Sage. Faites un export depuis Sage, puis importez-le ici (Fichier → Importer) :</p>
+      <ul><li><b>Écritures</b> : dans Sage, utilisez l'export des écritures au format FEC ou au format texte paramétrable (menu Fichier → Exporter, selon votre version). SmartCompta reconnaît automatiquement les colonnes du FEC (JournalCode, EcritureDate, CompteNum, Debit, Credit, EcritureLet…).</li>
+        <li><b>Plan comptable et tiers</b> : depuis Sage, exportez ou copiez la liste des comptes vers Excel (numéro, intitulé), puis importez-la avec le type « Plan comptable » ou « Plan tiers ».</li>
+        <li><b>À défaut</b> : exportez le grand-livre ou la balance de Sage vers Excel et importez-le avec le type « Écritures / OD ».</li>
+        <li>Pour une reprise partielle, filtrez la période et les journaux à l'étape 3 de l'import.</li></ul>
+      ${HAS_CLAUDE ? `<h2>Claude dans SmartCompta</h2><p><b>? → Demander à Claude</b> pour une analyse, un avis d'expert, un contrôle ou des écritures proposées. <b>? → Personnaliser avec Claude</b> pour ajouter des journaux, des comptes, des taux ou des commandes au menu « Mes commandes ». Claude propose, vous validez : rien n'est modifié sans votre accord.</p>` : ""}
+    </div>`;
+  },
+  update() {}
+};
+VIEWS.apropos = {
+  title: "À propos",
+  mount(el) {
+    el.innerHTML = `<div class="card prose"><h2>SmartCompta Exp ${esc(window.SMARTCOMPTA_VERSION || "")}</h2>
+      <p>Logiciel de comptabilité générale conforme au SYSCOHADA révisé, adapté au contexte fiscal et social du Niger (TVA 19 %, ITS, CNSS, FSSP).</p>
+      <p>${window.SMARTCOMPTA_OFFLINE ? "Version Windows hors ligne : les données restent sur cet ordinateur." : "Version en ligne : les données du dossier sont enregistrées dans votre espace Claude."}</p>
+      ${typeof Licence !== "undefined" && Licence.info ? `<p>Licence : ${esc(Licence.info.label)} · ordinateur ${esc(Licence.info.machine)}</p>` : ""}
+      <p class="note">Composants : SheetJS (Excel), PDF.js (lecture des PDF), jsPDF (bulletins).</p></div>`;
+  },
+  update() {}
+};
+
+/* ============ Calculette ============ */
+function evalExpr(src) {
+  const t = String(src).replace(/,/g, ".").replace(/[×x]/g, "*").replace(/÷/g, "/").replace(/\s+/g, "").match(/\d+(\.\d+)?|[-+*/()%]/g) || [];
+  let i = 0;
+  const peek = () => t[i], take = () => t[i++];
+  const prim = () => { const x = take(); if (x === "(") { const v = sum(); take(); return v; } if (x === "-") return -prim(); if (x === "+") return prim(); const n = parseFloat(x); if (isNaN(n)) throw 0; if (peek() === "%") { take(); return n / 100; } return n; };
+  const prod = () => { let v = prim(); while (peek() === "*" || peek() === "/") { const o = take(), w = prim(); v = o === "*" ? v * w : v / w; } return v; };
+  const sum = () => { let v = prod(); while (peek() === "+" || peek() === "-") { const o = take(), w = prod(); v = o === "+" ? v + w : v - w; } return v; };
+  const v = sum(); if (i < t.length || !isFinite(v)) throw 0; return Math.round(v * 1e6) / 1e6;
+}
+function toggleCalc(force) {
+  let c = $("#calc");
+  if (!c) {
+    c = document.createElement("div"); c.id = "calc"; c.className = "calc"; c.hidden = true;
+    c.innerHTML = `<div class="calc-h"><b>Calculette</b><button class="btn sm" id="calc-x" aria-label="Fermer la calculette">×</button></div>
+      <input class="input num" id="calc-in" placeholder="Ex. 1 250 000 * 19 %" autocomplete="off" aria-label="Calcul">
+      <div class="calc-out"><span id="calc-res">0</span><button class="btn sm" id="calc-copy">Copier</button></div>
+      <div class="calc-keys">${["7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "-", "0", ",", "%", "+", "(", ")", "C", "="].map(k => `<button class="btn" data-k="${k}">${k}</button>`).join("")}</div>`;
+    document.body.appendChild(c);
+    const inp = $("#calc-in"), res = $("#calc-res");
+    const calc = () => { try { const v = evalExpr(inp.value.replace(/\s/g, "")); res.textContent = fmt0(v); res.dataset.v = v; } catch (e) { res.textContent = inp.value ? "…" : "0"; } };
+    inp.oninput = calc;
+    inp.onkeydown = e => { if (e.key === "Enter") { if (res.dataset.v !== undefined) inp.value = String(res.dataset.v).replace(".", ","); calc(); } if (e.key === "Escape") toggleCalc(false); };
+    $$("[data-k]", c).forEach(b => b.onclick = () => { const k = b.dataset.k; if (k === "C") inp.value = ""; else if (k === "=") { if (res.dataset.v !== undefined) inp.value = String(res.dataset.v).replace(".", ","); } else inp.value += k; calc(); inp.focus(); });
+    $("#calc-x").onclick = () => toggleCalc(false);
+    $("#calc-copy").onclick = async () => { try { await navigator.clipboard.writeText(String(res.dataset.v ?? "").replace(".", ",")); toast("Résultat copié."); } catch (e) { inp.select(); } };
+  }
+  c.hidden = force === undefined ? !c.hidden : !force;
+  if (!c.hidden) setTimeout(() => $("#calc-in").focus(), 0);
+}
+
+/* ============ Menus et barre d'outils ============ */
+function nav(v) { if (location.hash.slice(1) === v) go(); else location.hash = v; }
+function exportFEC() {
+  const rows = [["JournalCode", "JournalLib", "EcritureNum", "EcritureDate", "CompteNum", "CompteLib", "CompAuxNum", "CompAuxLib", "PieceRef", "PieceDate", "EcritureLib", "Debit", "Credit", "EcritureLet", "DateLet", "ValidDate", "Montantdevise", "Idevise"]];
+  const d8 = d => (d || "").replace(/-/g, ""), n = v => (+v || 0).toFixed(2).replace(".", ",");
+  [...S.ecritures].sort((a, b) => (a.date + a.journal + a.piece).localeCompare(b.date + b.journal + b.piece)).forEach(e => (e.lignes || []).forEach(l => rows.push([e.journal, JOURNAUX[e.journal] || e.journal, e.piece, d8(e.date), normAcc(l.compte), labelOf(l.compte), "", "", e.piece, d8(e.date), (l.libelle || e.libelle || "").replace(/[\t\r\n|]/g, " "), n(l.debit), n(l.credit), l.lettre || "", "", d8(e.date), "", ""])));
+  saveFile(`FEC-${(S.societe.nif || "dossier").replace(/[^\w-]+/g, "")}-${(S.societe.fin || "").replace(/-/g, "")}.txt`, "﻿" + rows.map(r => r.join("\t")).join("\r\n"), "text/plain");
+}
+const MENUS = () => [
+  {label: "Fichier", items: [
+    ["Accueil", () => nav("accueil")], ["Dossier de la société…", () => nav("societe")], "-",
+    ["Importer…", () => nav("import"), "F4"], ["Ouvrir une comptabilité Sage (export FEC, texte, Excel)…", () => { IM.type = "ecritures"; IM.sageHint = true; nav("import"); }], "-",
+    ["Exporter les écritures (Excel)…", () => { JL.from = ""; JL.to = ""; exportXlsx(`ecritures-${new Date().toISOString().slice(0, 10)}.xlsx`, [{name: "Écritures", rows: VIEWS.ecritures.rows()}]); }],
+    ["Exporter le fichier des écritures (FEC)…", exportFEC],
+    ["Exporter la balance (Excel)…", () => { BL.from = S.societe.debut; BL.to = S.societe.fin; exportXlsx(`balance-${BL.to}.xlsx`, [{name: "Balance", rows: VIEWS.balance.rows()}]); }], "-",
+    ["Sauvegarder le dossier…", async () => { await saveFile(`smartcompta-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(dossierData(), null, 1), "application/json"); markBackup(); }],
+    ["Restaurer une sauvegarde…", () => nav("societe")],
+    ...(window.SMARTCOMPTA_OFFLINE ? ["-", ["Imprimer l'écran…", () => window.print(), "Ctrl+P"]] : [])
+  ]},
+  {label: "Édition", items: [
+    ["Nouvelle écriture", () => { resetForm(); nav("saisie"); }, "F2"], ["Rechercher une écriture…", () => { nav("ecritures"); setTimeout(() => { const q = $("#j-q"); if (q) q.focus(); }, 60); }, "F3"], "-",
+    ["Calculette", () => toggleCalc(), "F9"]
+  ]},
+  {label: "Structure", items: [
+    ["Plan comptable", () => nav("plan")], ["Plan tiers", () => nav("tiers")], ["Codes journaux", () => nav("journaux")], ["Taux de taxes", () => nav("taxes")], "-",
+    ["Salariés", () => { PY.tab = "salaries"; nav("paie"); }], ["Paramètres de paie", () => { PY.tab = "params"; nav("paie"); }], ["Registre des immobilisations", () => nav("immos")]
+  ]},
+  {label: "Traitement", items: [
+    ["Saisie des écritures", () => nav("saisie")], ["Consultation des journaux", () => nav("ecritures")], ["Lettrage des tiers", () => nav("lettrage")], "-",
+    ["Paie du mois", () => { PY.tab = "mois"; nav("paie"); }], ["Dotations aux amortissements", () => nav("immos")], "-", ["Import de données", () => nav("import")]
+  ]},
+  {label: "État", items: [
+    ["Journaux", () => nav("ecritures")], ["Grand-livre des comptes", () => nav("grandlivre")], ["Balance des comptes", () => nav("balance")], "-",
+    ["Échéancier et balance âgée", () => nav("lettrage")], ["Déclaration de TVA", () => nav("etats")], ["Bilan et compte de résultat", () => nav("etats")], ["Rapport d'activité", () => nav("tableau")], "-",
+    ["Analyse et contrôles", () => nav("controles")], ["Contrôle de caisse", () => nav("controles")]
+  ]},
+  ...((S.structure.commandes || []).length ? [{label: "Mes commandes", items: S.structure.commandes.map(c => [c.libelle, () => runCommande(c)])}] : []),
+  {label: "Fenêtre", items: [["Écran précédent", () => history.back(), "Alt+←"], ["Écran suivant", () => history.forward(), "Alt+→"], "-", ...NAVHIST.slice(-6).reverse().map(v => [VIEWS[v] ? VIEWS[v].title : v, () => nav(v)])]},
+  {label: "?", items: [
+    ...(HAS_CLAUDE ? [["Demander à Claude (analyse, contrôle, conseil)", () => nav("claude")], ["Personnaliser avec Claude", () => nav("perso")], "-"] : []),
+    ["Mode d'emploi", () => nav("aide")], ["À propos de SmartCompta Exp", () => nav("apropos")]
+  ]}
+];
+const NAVHIST = [];
+let openMenu = -1, menuDefs = [];
+function renderMenus() {
+  const bar = $("#menubar"); if (!bar) return;
+  menuDefs = MENUS();
+  bar.innerHTML = menuDefs.map((m, i) => `<div class="mb-item"><button class="mb-btn" data-m="${i}" aria-haspopup="true" aria-expanded="false">${esc(m.label)}</button>
+    <div class="mb-drop" role="menu" hidden>${m.items.map((it, j) => it === "-" ? '<hr>' : `<button role="menuitem" data-mi="${i}:${j}"><span>${esc(it[0])}</span>${it[2] ? `<kbd>${esc(it[2])}</kbd>` : ""}</button>`).join("")}</div></div>`).join("");
+  $$(".mb-btn", bar).forEach(b => {
+    b.onclick = e => { e.stopPropagation(); const i = +b.dataset.m; showMenu(openMenu === i ? -1 : i); };
+    b.onmouseenter = () => { if (openMenu >= 0 && openMenu !== +b.dataset.m) showMenu(+b.dataset.m); };
+  });
+  $$("[data-mi]", bar).forEach(b => b.onclick = e => { e.stopPropagation(); const [i, j] = b.dataset.mi.split(":").map(Number); showMenu(-1); menuDefs[i].items[j][1](); });
+}
+function showMenu(i) {
+  openMenu = i;
+  $$(".mb-item").forEach((m, k) => { const d = m.querySelector(".mb-drop"), b = m.querySelector(".mb-btn"); d.hidden = k !== i; b.classList.toggle("on", k === i); b.setAttribute("aria-expanded", k === i); });
+  if (i >= 0) { const first = $$(".mb-item")[i].querySelector("[data-mi]"); if (first) first.focus({preventScroll: true}); }
+}
+document.addEventListener("click", () => { if (openMenu >= 0) showMenu(-1); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { if (openMenu >= 0) showMenu(-1); const c = $("#calc"); if (c && !c.hidden) toggleCalc(false); }
+  if ($("#lock")) return;
+  if (openMenu >= 0 && (e.key === "ArrowDown" || e.key === "ArrowUp")) { const items = $$(".mb-item")[openMenu].querySelectorAll("[data-mi]"), k = [...items].indexOf(document.activeElement); const n = items[(k + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]; if (n) n.focus(); e.preventDefault(); }
+  if (openMenu >= 0 && (e.key === "ArrowRight" || e.key === "ArrowLeft") && !e.altKey) { showMenu((openMenu + (e.key === "ArrowRight" ? 1 : -1) + menuDefs.length) % menuDefs.length); e.preventDefault(); }
+  if (e.key === "F2") { e.preventDefault(); resetForm(); nav("saisie"); }
+  if (e.key === "F3") { e.preventDefault(); nav("ecritures"); setTimeout(() => { const q = $("#j-q"); if (q) q.focus(); }, 60); }
+  if (e.key === "F4") { e.preventDefault(); nav("import"); }
+  if (e.key === "F9") { e.preventDefault(); toggleCalc(); }
+  if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); history.back(); }
+  if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); history.forward(); }
+});
+function renderToolbar() {
+  const tb = $("#toolbar"); if (!tb) return;
+  const B = [
+    ["tableau", "Accueil", () => nav("accueil")], ["saisie", "Ajouter", () => { resetForm(); nav("saisie"); }, "F2"], ["journal", "Consulter", () => nav("ecritures")],
+    ["import", "Importer", () => nav("import"), "F4"], "|", ["balance", "Balance", () => nav("balance")], ["grandlivre", "Grand-livre", () => nav("grandlivre")], ["controle", "Contrôles", () => nav("controles")], "|",
+    ["calc", "Calculette", () => toggleCalc(), "F9"], ...(HAS_CLAUDE ? [["claude", "Claude", () => nav("claude")]] : [])
+  ];
+  tb.innerHTML = B.map((b, i) => b === "|" ? '<span class="tb-sep"></span>' : `<button class="tb-btn" data-tb="${i}" title="${esc(b[1])}${b[3] ? " (" + b[3] + ")" : ""}">${ico(b[0], 18)}<span>${esc(b[1])}</span></button>`).join("");
+  $$("[data-tb]", tb).forEach(x => x.onclick = () => B[+x.dataset.tb][2]());
+}
+function runCommande(c) {
+  const p = c.parametres || {};
+  if (c.vue === "grandlivre") { GL.acc = normAcc(p.compte || ""); if (p.du) GL.from = p.du; if (p.au) GL.to = p.au; }
+  if (c.vue === "balance") { if (p.du) BL.from = p.du; if (p.au) BL.to = p.au; }
+  if (c.vue === "ecritures") { JL.journal = p.journal || ""; JL.q = p.recherche || ""; if (p.du) JL.from = p.du; if (p.au) JL.to = p.au; }
+  if (c.vue === "lettrage" && p.compte) LT.acc = normAcc(p.compte);
+  if (c.vue === "paie" && p.onglet) PY.tab = p.onglet;
+  if (c.vue === "claude" && p.question) { nav("claude"); return setTimeout(() => VIEWS.claude.ask(p.question), 300); }
+  nav(VIEWS[c.vue] ? c.vue : "accueil");
+}
+
+/* ============ Personnaliser avec Claude ============ */
+const VUES_CMD = ["grandlivre", "balance", "ecritures", "lettrage", "etats", "controles", "paie", "immos", "tiers", "tableau", "claude", "saisie", "import", "plan", "journaux", "taxes"];
+const ACTION_DOC = `Actions possibles, en JSON :
+- {"type":"commande","libelle":"Balance des charges du mois","vue":"${VUES_CMD.join("|")}","parametres":{"compte":"6","du":"AAAA-MM-JJ","au":"AAAA-MM-JJ","journal":"BQ","recherche":"texte","onglet":"mois|salaries|params","question":"question à poser à Claude si vue=claude"}} : ajoute une commande au menu « Mes commandes » (paramètres facultatifs).
+- {"type":"supprimer_commande","libelle":"..."}
+- {"type":"journal","code":"BOA","libelle":"Banque BOA Niger","nature":"achats|ventes|tresorerie|general|paie|situation","compte":"5211"} : crée ou modifie un journal (2 à 4 caractères).
+- {"type":"compte","numero":"4011001","intitule":"SONIDEP","tiers":{"type":"client|fournisseur|salarie|autre","nif":"","tel":""}} : crée un compte ou un tiers (numéro rattaché au plan SYSCOHADA).
+- {"type":"taxe","code":"TVA19","libelle":"TVA taux normal","taux":19,"collectee":"4431","deductible":"4452"}`;
+function checkAction(a) {
+  if (!a || typeof a !== "object") return "Action illisible";
+  if (a.type === "commande") return !a.libelle ? "Libellé manquant" : !VUES_CMD.includes(a.vue) ? `Écran inconnu : ${a.vue}` : "";
+  if (a.type === "supprimer_commande") return (S.structure.commandes || []).some(c => c.libelle === a.libelle) ? "" : "Commande introuvable";
+  if (a.type === "journal") return !/^[A-Z][A-Z0-9]{1,3}$/.test(String(a.code || "").toUpperCase()) ? "Code de journal invalide" : JOURNAUX_BASE[String(a.code).toUpperCase()] ? "Journal standard non modifiable" : !a.libelle ? "Intitulé manquant" : a.compte && !accountValid(a.compte) ? "Compte de trésorerie inconnu" : "";
+  if (a.type === "compte") { const n = normAcc(a.numero); return !/^[1-9]\d{2,11}$/.test(n) ? "Numéro de compte invalide" : !labelOf(n.slice(0, 2)) && !labelOf(n) ? "Classe de compte inconnue" : !a.intitule ? "Intitulé manquant" : PLAN[n] ? "Compte déjà présent dans le plan SYSCOHADA" : ""; }
+  if (a.type === "taxe") return !a.code || !a.libelle ? "Code ou intitulé manquant" : !(+a.taux >= 0 && +a.taux <= 100) ? "Taux invalide" : !accountValid(a.collectee || "4431") || !accountValid(a.deductible || "4452") ? "Compte de TVA inconnu" : "";
+  return "Type d'action non pris en charge";
+}
+function describeAction(a) {
+  return a.type === "commande" ? `Ajouter la commande « ${a.libelle} » au menu Mes commandes (écran ${(VIEWS[a.vue] || {}).title || a.vue})`
+    : a.type === "supprimer_commande" ? `Retirer la commande « ${a.libelle} »`
+    : a.type === "journal" ? `Journal ${String(a.code).toUpperCase()} : ${a.libelle}${a.compte ? " (compte " + a.compte + ")" : ""}`
+    : a.type === "compte" ? `Compte ${normAcc(a.numero)} : ${a.intitule}${a.tiers ? " (tiers)" : ""}`
+    : a.type === "taxe" ? `Taux ${a.code} : ${a.libelle}, ${a.taux} %` : JSON.stringify(a).slice(0, 120);
+}
+async function applyActions(list) {
+  const st = {journaux: {...(S.structure.journaux || {})}, taxes: taxes().map(t => ({...t})), commandes: [...(S.structure.commandes || [])]};
+  let structChanged = false; const comptes = [];
+  for (const a of list) {
+    if (a.type === "commande") { st.commandes = st.commandes.filter(c => c.libelle !== a.libelle).concat([{libelle: String(a.libelle).slice(0, 80), vue: a.vue, parametres: a.parametres || {}}]); structChanged = true; }
+    if (a.type === "supprimer_commande") { st.commandes = st.commandes.filter(c => c.libelle !== a.libelle); structChanged = true; }
+    if (a.type === "journal") { st.journaux[String(a.code).toUpperCase()] = {libelle: String(a.libelle), nature: NATURES[a.nature] ? a.nature : "general", compte: normAcc(a.compte || "")}; structChanged = true; }
+    if (a.type === "taxe") { st.taxes = st.taxes.filter(t => t.code !== a.code).concat([{code: String(a.code).toUpperCase(), libelle: String(a.libelle), taux: +a.taux, collectee: normAcc(a.collectee || "4431"), deductible: normAcc(a.deductible || "4452")}]); structChanged = true; }
+    if (a.type === "compte") comptes.push({num: normAcc(a.numero), lib: String(a.intitule), ...(a.tiers ? {tiers: {type: TIERS_TYPES[a.tiers.type] ? a.tiers.type : "autre", nif: String(a.tiers.nif || ""), tel: String(a.tiers.tel || ""), adresse: String(a.tiers.adresse || "")}} : {})});
+  }
+  return guard(async () => { for (const c of comptes) await Store.saveAccountX(c); if (structChanged) await Store.putStructure(st); }, `${list.length} modification(s) appliquée(s).`);
+}
+function renderActionList(box, list, intro) {
+  const items = (Array.isArray(list) ? list : [list]).map(a => ({a, err: checkAction(a)}));
+  box.innerHTML = `<div class="card" style="margin:8px 0;padding:12px"><div class="card-h" style="margin-bottom:8px"><div><h3>${items.length} modification(s) proposée(s)</h3>${intro ? `<p>${esc(intro)}</p>` : ""}</div>
+    <button class="btn sm primary" data-apply ${items.some(x => !x.err) ? "" : "disabled"}>Appliquer les modifications cochées</button></div>
+    ${items.map((x, i) => `<label style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--line)"><input type="checkbox" class="chk" data-ai="${i}" ${x.err ? "disabled" : "checked"}><span>${esc(describeAction(x.a))}${x.err ? ` <span class="pill bad">${esc(x.err)}</span>` : ""}</span></label>`).join("")}
+    <p class="note" style="margin-top:8px">Rien n'est modifié tant que vous n'avez pas cliqué sur « Appliquer ».</p></div>`;
+  const btn = $("[data-apply]", box);
+  btn.onclick = async () => {
+    const sel = items.filter((x, i) => !x.err && $(`[data-ai="${i}"]`, box).checked).map(x => x.a);
+    if (!sel.length) return toast("Cochez au moins une modification.", "bad");
+    if (await applyActions(sel)) { btn.disabled = true; btn.textContent = "Appliqué"; }
+  };
+}
+function renderActions(box) { try { renderActionList(box, JSON.parse(box.dataset.json)); } catch (e) { box.innerHTML = `<p class="note">Proposition de modification illisible.</p>`; } }
+const PERSO_EX = ["Ajoute un journal BOA pour ma banque BOA Niger, compte 5211", "Ajoute une commande « Charges du mois » qui ouvre la balance du mois en cours", "Crée les fournisseurs SONIDEP, NIGELEC et Orange Niger", "Ajoute une commande qui demande à Claude un contrôle de la TVA du mois", "Crée un taux de TVA exonérée pour les ONG"];
+VIEWS.perso = {
+  title: "Personnaliser avec Claude",
+  mount(el) {
+    el.innerHTML = `<div class="card"><div class="card-h"><div><h2>Que voulez-vous ajouter ou changer ?</h2><p>Décrivez en français : Claude propose les modifications (journaux, comptes et tiers, taux de taxes, commandes du menu « Mes commandes »), vous les vérifiez puis les appliquez.</p></div></div>
+      <div class="ai-chips">${PERSO_EX.map((t, i) => `<button class="btn sm" data-ex="${i}">${esc(t)}</button>`).join("")}</div>
+      <textarea class="input" id="ps-q" rows="3" placeholder="Ex. Ajoute un journal de caisse secondaire CA2 sur le compte 5712, et une commande qui ouvre son grand-livre"></textarea>
+      <div class="btns" style="margin-top:10px;justify-content:flex-end"><button class="btn primary" id="ps-go">Proposer les modifications</button></div>
+      <div id="ps-out"></div></div>
+      <div class="card" style="margin-top:14px"><h2 style="margin-bottom:8px">Mes commandes</h2><div id="ps-cmds"></div>
+      <p class="note" style="margin-top:10px">Pour un nouvel écran, une nouvelle règle de calcul ou un changement du programme lui-même, demandez-le dans Claude Code : la nouvelle version sera publiée au même lien.</p></div>`;
+    $$("[data-ex]", el).forEach(b => b.onclick = () => { $("#ps-q").value = PERSO_EX[+b.dataset.ex]; });
+    $("#ps-go").onclick = () => this.ask($("#ps-q").value.trim());
+  },
+  async ask(q) {
+    if (!q) return toast("Décrivez la modification souhaitée.", "bad");
+    const sample = await claudeUse("sample");
+    if (!sample) return toast("Claude n'est pas disponible ici : ouvrez l'application dans Claude, avec une connexion internet.", "bad");
+    const out = $("#ps-out"), btn = $("#ps-go"); btn.disabled = true; out.innerHTML = `<p class="note" style="margin-top:10px">Claude prépare les modifications…</p>`;
+    const ctx = `Journaux existants : ${Object.entries(JOURNAUX).map(([k, v]) => k + " " + v).join(" ; ")}.\nTaux : ${taxes().map(t => t.code + " " + t.taux + "%").join(" ; ")}.\nComptes personnalisés : ${Object.entries(S.comptes).slice(0, 150).map(([k, v]) => k + " " + v).join(" ; ") || "aucun"}.\nCommandes existantes : ${(S.structure.commandes || []).map(c => c.libelle).join(" ; ") || "aucune"}.\nExercice : ${S.societe.debut} au ${S.societe.fin}. Date du jour : ${new Date().toISOString().slice(0, 10)}.`;
+    try {
+      const r = await sample.json(`Tu paramètres SmartCompta Exp, logiciel comptable SYSCOHADA révisé (Niger). Traduis la demande de l'utilisateur en actions de paramétrage. N'utilise que les types d'actions ci-dessous ; si une partie de la demande n'est pas réalisable avec eux, explique-le dans "explication".\n${ACTION_DOC}\n\nContexte du dossier :\n${ctx}\n\nDemande : ${q}\n\nRéponds uniquement en JSON : {"actions":[...],"explication":"une ou deux phrases en français"}`, {modelTier: "default"});
+      if (!r || !Array.isArray(r.actions)) throw {code: "invalid_json"};
+      if (!r.actions.length) out.innerHTML = `<div class="alert" style="margin-top:10px">${esc(r.explication || "Aucune modification proposée.")}</div>`;
+      else renderActionList(out, r.actions, r.explication);
+    } catch (e) { out.innerHTML = `<div class="alert bad" style="margin-top:10px">${esc(aiError(e))}</div>`; }
+    btn.disabled = false;
+  },
+  update(el) {
+    const box = $("#ps-cmds", el); if (!box) return;
+    const c = S.structure.commandes || [];
+    box.innerHTML = c.length ? `<div class="tbl-wrap"><table class="t"><tbody>${c.map((x, i) => `<tr><td><b>${esc(x.libelle)}</b></td><td>${esc((VIEWS[x.vue] || {}).title || x.vue)}</td><td><div class="btns" style="flex-wrap:nowrap"><button class="btn sm" data-run="${i}">Lancer</button><button class="btn sm danger" data-del="${i}">Supprimer</button></div></td></tr>`).join("")}</tbody></table></div>` : `<p class="note">Aucune commande personnalisée pour l'instant.</p>`;
+    $$("[data-run]", box).forEach(b => b.onclick = () => runCommande(c[+b.dataset.run]));
+    $$("[data-del]", box).forEach(b => armDelete(b, () => saveStructure({commandes: c.filter((_, i) => i !== +b.dataset.del)})));
+  }
+};
 
 /* ============ Code d'accès (version Windows) ============ */
 // Actif seulement quand la version hors ligne embarque une configuration de licence (offline/build.py).
@@ -2647,6 +3251,8 @@ const Licence = {
 
 /* ============ Démarrage ============ */
 const HAS_CLAUDE = !!(window.claude && typeof window.claude.use === "function");
+S.structure = DEF_STRUCT();
+renderToolbar(); renderMenus();
 if (!HAS_CLAUDE) { const a = document.querySelector('#nav a[data-v="claude"]'); if (a) a.remove(); }
 fillDatalist();
 (async () => {

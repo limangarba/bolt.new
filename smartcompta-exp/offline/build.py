@@ -30,7 +30,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OFF = os.path.join(ROOT, "offline")
 DIST = os.path.join(ROOT, "dist")
 PRIVE = os.path.join(ROOT, "prive")
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 VENDOR = "Smart Consulting"
 ALPHA = "ABCDEFGHJKMNPQRSTVWXYZ0123456789"
 
