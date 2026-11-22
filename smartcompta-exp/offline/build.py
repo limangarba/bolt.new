@@ -20,6 +20,8 @@ import json
 import hmac
 import hashlib
 import secrets
+import base64
+import io
 import shutil
 import subprocess
 import sys
@@ -28,7 +30,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OFF = os.path.join(ROOT, "offline")
 DIST = os.path.join(ROOT, "dist")
 PRIVE = os.path.join(ROOT, "prive")
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 VENDOR = "Smart Consulting"
 ALPHA = "ABCDEFGHJKMNPQRSTVWXYZ0123456789"
 
@@ -121,12 +123,27 @@ def build_html(cfg=None) -> str:
     # Les bibliothèques passent juste avant le script principal de l'application.
     i = src.index("<script>\n\"use strict\";")
     body = src[:i] + boot + "\n" + "\n".join(libs) + "\n" + src[i:]
-    return ("<!doctype html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"utf-8\">\n"
+    fav = favicon_links()
+    return ("<!doctype html>\n<html lang=\"fr\">\n<head>\n<meta charset=\"utf-8\">\n" + fav + "\n"
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">\n"
             f"{title}\n{RESET}\n</head>\n<body>\n{body}\n</body>\n</html>\n")
 
 
-def build_icon(path: str):
+def favicon_links() -> str:
+    # Icône de la fenêtre et de la barre des tâches : sans elle, Edge ou Chrome affichent leur propre logo.
+    out = []
+    for n in (32, 192):
+        buf = io.BytesIO(); icon_image(n).save(buf, "PNG")
+        out.append('<link rel="icon" type="image/png" sizes="%dx%d" href="data:image/png;base64,%s">' % (n, n, base64.b64encode(buf.getvalue()).decode()))
+    return "\n".join(out)
+
+
+def icon_image(n=256):
+    from PIL import Image
+    return draw_icon().resize((n, n), Image.LANCZOS)
+
+
+def draw_icon():
     from PIL import Image, ImageDraw
     size = 256
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -136,7 +153,27 @@ def build_icon(path: str):
     d.line([(64, 196), (64, 60)], fill="white", width=w)
     d.line([(55, 196), (200, 196)], fill="white", width=w)
     d.line([(88, 160), (124, 112), (152, 140), (198, 76)], fill="white", width=w, joint="curve")
-    img.save(path, sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    return img
+
+
+def build_icon(path: str):
+    draw_icon().save(path, sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+
+
+def build_launcher():
+    """Compile « SmartCompta Exp.exe », le lanceur Windows doté de l'icône de l'application."""
+    gcc, windres = "x86_64-w64-mingw32-gcc", "x86_64-w64-mingw32-windres"
+    if not (shutil.which(gcc) and shutil.which(windres)):
+        sys.exit("Compilateur MinGW absent : installez gcc-mingw-w64-x86-64 pour produire le lanceur Windows.")
+    shutil.copy(os.path.join(DIST, "smartcompta.ico"), os.path.join(OFF, "smartcompta.ico"))
+    try:
+        subprocess.run([windres, "launcher.rc", "-O", "coff", "-o", "launcher.res"], cwd=OFF, check=True)
+        subprocess.run([gcc, "-O2", "-s", "-municode", "-mwindows", "launcher.c", "launcher.res", "-o", os.path.join(DIST, "SmartCompta Exp.exe"), "-ladvapi32", "-lshell32"], cwd=OFF, check=True)
+    finally:
+        for f in ("launcher.res", "smartcompta.ico"):
+            if os.path.exists(os.path.join(OFF, f)):
+                os.remove(os.path.join(OFF, f))
+    print("Lanceur : " + os.path.join(DIST, "SmartCompta Exp.exe"))
 
 
 def main():
@@ -155,6 +192,7 @@ def main():
     ico = os.path.join(DIST, "smartcompta.ico")
     build_icon(ico)
     print(f"Icône : {ico}")
+    build_launcher()
     if shutil.which("makensis"):
         shutil.copy(os.path.join(OFF, "installer.nsi"), os.path.join(DIST, "installer.nsi"))
         r = subprocess.run(["makensis", "-V2", f"-DVERSION={VERSION}", "installer.nsi"], cwd=DIST, capture_output=True, text=True)

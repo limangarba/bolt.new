@@ -46,7 +46,6 @@ VIAddVersionKey /LANG=1036 "LegalCopyright" "SmartCompta Exp"
 !insertmacro MUI_LANGUAGE "French"
 
 Var BROWSER
-Var ARGS
 
 ; Recherche Microsoft Edge, puis Google Chrome, pour ouvrir l'application dans une fenêtre dédiée.
 Function FindBrowser
@@ -71,46 +70,29 @@ Function FindBrowser
   none:
 FunctionEnd
 
-; Arguments de lancement : fenêtre d'application, profil dédié (données isolées et conservées).
-Function BuildArgs
-  ${WordReplace} "$INSTDIR\SmartCompta-Exp.html" "\" "/" "+" $1
-  ${WordReplace} $1 "%" "%25" "+" $1
-  ${WordReplace} $1 " " "%20" "+" $1
-  ${WordReplace} $1 "#" "%23" "+" $1
-  StrCpy $ARGS '--app="file:///$1" --user-data-dir="${DATADIR}\Profil" --no-first-run --no-default-browser-check --disable-sync --lang=fr'
-FunctionEnd
-
 Function LaunchApp
-  StrCmp $BROWSER "" 0 +3
-    ExecShell "open" "$INSTDIR\SmartCompta-Exp.html"
-    Return
-  Exec '"$BROWSER" $ARGS'
+  Exec '"$INSTDIR\SmartCompta Exp.exe"'
 FunctionEnd
 
 Section "Installer"
   SetOutPath "$INSTDIR"
   File "SmartCompta-Exp.html"
+  File "SmartCompta Exp.exe"
   File "smartcompta.ico"
   CreateDirectory "${DATADIR}\Profil"
   Call FindBrowser
-  Call BuildArgs
+  StrCmp $BROWSER "" 0 +2
+    MessageBox MB_ICONEXCLAMATION|MB_OK "Microsoft Edge et Google Chrome sont introuvables sur cet ordinateur.$\r$\n$\r$\n${APP} s'ouvrira dans votre navigateur par défaut. Pour une fenêtre d'application dédiée, installez Microsoft Edge." /SD IDOK
   CreateDirectory "$SMPROGRAMS\${APP}"
-  StrCmp $BROWSER "" nobrowser
-    CreateShortCut "$DESKTOP\${APP}.lnk" "$BROWSER" "$ARGS" "$INSTDIR\smartcompta.ico" 0 SW_SHOWNORMAL "" "Comptabilité SYSCOHADA hors ligne"
-    CreateShortCut "$SMPROGRAMS\${APP}\${APP}.lnk" "$BROWSER" "$ARGS" "$INSTDIR\smartcompta.ico" 0 SW_SHOWNORMAL "" "Comptabilité SYSCOHADA hors ligne"
-    Goto shortcuts
-  nobrowser:
-    MessageBox MB_ICONEXCLAMATION|MB_OK "Microsoft Edge et Google Chrome sont introuvables sur cet ordinateur.$\r$\n$\r$\n${APP} s'ouvrira dans votre navigateur par défaut. Pour une fenêtre d'application dédiée, installez Microsoft Edge puis relancez cette installation." /SD IDOK
-    CreateShortCut "$DESKTOP\${APP}.lnk" "$INSTDIR\SmartCompta-Exp.html" "" "$INSTDIR\smartcompta.ico" 0
-    CreateShortCut "$SMPROGRAMS\${APP}\${APP}.lnk" "$INSTDIR\SmartCompta-Exp.html" "" "$INSTDIR\smartcompta.ico" 0
-  shortcuts:
+  CreateShortCut "$DESKTOP\${APP}.lnk" "$INSTDIR\SmartCompta Exp.exe" "" "$INSTDIR\SmartCompta Exp.exe" 0 SW_SHOWNORMAL "" "Comptabilité SYSCOHADA hors ligne"
+  CreateShortCut "$SMPROGRAMS\${APP}\${APP}.lnk" "$INSTDIR\SmartCompta Exp.exe" "" "$INSTDIR\SmartCompta Exp.exe" 0 SW_SHOWNORMAL "" "Comptabilité SYSCOHADA hors ligne"
   CreateShortCut "$SMPROGRAMS\${APP}\Désinstaller ${APP}.lnk" "$INSTDIR\Desinstaller.exe" "" "$INSTDIR\smartcompta.ico" 0
 
   WriteUninstaller "$INSTDIR\Desinstaller.exe"
   WriteRegStr HKCU "${REGKEY}" "DisplayName" "${APP}"
   WriteRegStr HKCU "${REGKEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "${REGKEY}" "Publisher" "SmartCompta Exp"
-  WriteRegStr HKCU "${REGKEY}" "DisplayIcon" "$INSTDIR\smartcompta.ico"
+  WriteRegStr HKCU "${REGKEY}" "DisplayIcon" "$INSTDIR\SmartCompta Exp.exe"
   WriteRegStr HKCU "${REGKEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${REGKEY}" "UninstallString" '"$INSTDIR\Desinstaller.exe"'
   WriteRegStr HKCU "${REGKEY}" "QuietUninstallString" '"$INSTDIR\Desinstaller.exe" /S'
@@ -121,6 +103,7 @@ SectionEnd
 
 Section "Uninstall"
   Delete "$INSTDIR\SmartCompta-Exp.html"
+  Delete "$INSTDIR\SmartCompta Exp.exe"
   Delete "$INSTDIR\smartcompta.ico"
   Delete "$INSTDIR\Desinstaller.exe"
   RMDir "$INSTDIR"
