@@ -130,6 +130,17 @@ table.lines .input{padding:6px 7px}
 .chk{width:16px;height:16px;accent-color:var(--accent)}
 .right{text-align:right}
 .hide-sm{}
+.ai-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.ai-log{display:flex;flex-direction:column;gap:12px;max-height:62vh;overflow:auto;padding:4px 2px;margin-bottom:12px}
+.ai-msg{max-width:100%;border-radius:8px;padding:10px 14px;line-height:1.55;min-width:0;overflow-wrap:anywhere}
+.ai-msg.me{align-self:flex-end;background:var(--accent);color:var(--accent-ink);max-width:min(640px,92%);white-space:pre-wrap}
+.ai-msg.bot{align-self:stretch;background:var(--surface-2);border:1px solid var(--line)}
+.ai-msg.bot p{margin:0 0 8px}.ai-msg.bot p:last-child{margin-bottom:0}
+.ai-h{margin:10px 0 6px;font-size:1rem}.ai-list{margin:4px 0 8px;padding-left:22px}
+.ai-pre{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto;font-family:var(--f-mono);font-size:.8rem}
+.ai-msg code{font-family:var(--f-mono);font-size:.85em;background:var(--surface);padding:0 4px;border-radius:3px}
+.ai-input{display:flex;flex-direction:column;gap:8px}
+details summary{list-style-position:inside}
 @media (max-width:1000px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:860px){
   .app{grid-template-columns:minmax(0,1fr)}
@@ -155,13 +166,15 @@ table.lines .input{padding:6px 7px}
     <nav class="nav" id="nav">
       <div class="nav-group">Pilotage</div>
       <a href="#tableau" data-v="tableau">Tableau de bord</a>
+      <a href="#claude" data-v="claude">Assistant Claude <span class="k">IA</span></a>
       <div class="nav-group">Traitements</div>
       <a href="#saisie" data-v="saisie">Saisie <span class="k">écritures</span></a>
       <a href="#ecritures" data-v="ecritures">Journaux</a>
       <a href="#import" data-v="import">Importer <span class="k">PDF · XLS · TXT</span></a>
       <a href="#lettrage" data-v="lettrage">Lettrage <span class="k">tiers</span></a>
-      <div class="nav-group">Personnel</div>
+      <div class="nav-group">Gestion</div>
       <a href="#paie" data-v="paie">Paie <span class="k">CNSS · ITS</span></a>
+      <a href="#immos" data-v="immos">Immobilisations</a>
       <div class="nav-group">États</div>
       <a href="#grandlivre" data-v="grandlivre">Grand livre</a>
       <a href="#balance" data-v="balance">Balance</a>
@@ -524,7 +537,7 @@ async function exportXlsx(filename, sheets) {
 }
 
 /* ============ État & stockage ============ */
-const S = {mode: "loading", societe: {...DEF_SOC}, comptes: {}, ecritures: [], salaries: [], bulletins: [], paie: {...DEF_PAIE}, ready: false, slow: false, dbError: null};
+const S = {mode: "loading", societe: {...DEF_SOC}, comptes: {}, ecritures: [], salaries: [], bulletins: [], immos: [], paie: {...DEF_PAIE}, ready: false, slow: false, dbError: null};
 const Store = {
   db: null,
   async init() {
@@ -532,11 +545,12 @@ const Store = {
     const db = await claudeUse("db");
     if (!db) return this.local();
     this.db = db; S.mode = "db";
-    const got = {e: false, c: false, s: false, sa: false, b: false, p: false};
+    const got = {e: false, c: false, s: false, sa: false, b: false, p: false, im: false};
     const timer = setTimeout(() => { if (!S.ready) { S.slow = true; renderStatus(); } }, 10000);
     const check = () => { if (Object.values(got).every(Boolean) && !S.ready) { S.ready = true; S.slow = false; clearTimeout(timer); } refresh(); };
     db.collection("salaries").onSnapshot(snap => { S.salaries = snap.docs.map(d => ({id: d.id, ...d.data()})); got.sa = true; check(); }, onErr);
     db.collection("bulletins").onSnapshot(snap => { S.bulletins = snap.docs.map(d => ({id: d.id, ...d.data()})); got.b = true; check(); }, onErr);
+    db.collection("immos").onSnapshot(snap => { S.immos = snap.docs.map(d => ({id: d.id, ...d.data()})); got.im = true; check(); }, onErr);
     db.doc("config/paie").onSnapshot(snap => { S.paie = {...DEF_PAIE, ...(snap.exists ? snap.data() : {})}; got.p = true; check(); }, onErr);
     const onErr = e => { clearTimeout(timer); S.dbError = e.code; S.ready = true; refresh(); };
     db.collection("ecritures").onSnapshot(snap => { S.ecritures = snap.docs.map(d => ({id: d.id, ...d.data()})); got.e = true; check(); }, onErr);
@@ -545,12 +559,12 @@ const Store = {
   },
   local() {
     S.mode = "local";
-    try { const raw = localStorage.getItem(LS_KEY); if (raw) { const d = JSON.parse(raw); S.ecritures = d.ecritures || []; S.comptes = d.comptes || {}; S.societe = {...DEF_SOC, ...(d.societe || {})}; S.salaries = d.salaries || []; S.bulletins = d.bulletins || []; S.paie = {...DEF_PAIE, ...(d.paie || {})}; } } catch (e) {}
+    try { const raw = localStorage.getItem(LS_KEY); if (raw) { const d = JSON.parse(raw); S.ecritures = d.ecritures || []; S.comptes = d.comptes || {}; S.societe = {...DEF_SOC, ...(d.societe || {})}; S.salaries = d.salaries || []; S.bulletins = d.bulletins || []; S.immos = d.immos || []; S.paie = {...DEF_PAIE, ...(d.paie || {})}; } } catch (e) {}
     S.ready = true; fillDatalist(); refresh();
   },
   persist() {
     if (S.mode !== "local") return;
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ecritures: S.ecritures, comptes: S.comptes, societe: S.societe, salaries: S.salaries, bulletins: S.bulletins, paie: S.paie})); }
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ecritures: S.ecritures, comptes: S.comptes, societe: S.societe, salaries: S.salaries, bulletins: S.bulletins, immos: S.immos, paie: S.paie})); }
     catch (e) { toast("Ce navigateur refuse l'enregistrement local : exportez une sauvegarde.", "bad"); }
   },
   async saveEntry(e) {
@@ -960,14 +974,45 @@ function armDelete(btn, action) {
 }
 
 /* ============ Import ============ */
-const FIELDS = {
-  releve: {"": "Ignorer", date: "Date", libelle: "Libellé", debit: "Débit (sortie)", credit: "Crédit (entrée)", montant: "Montant signé"},
-  ecritures: {"": "Ignorer", date: "Date", journal: "Journal", piece: "N° pièce", compte: "Compte", libelle: "Libellé", debit: "Débit", credit: "Crédit"}
+// Chaque type de pièce a ses champs, ses comptes par défaut et sa règle de passage en écriture.
+// Aucune ligne n'est écartée en silence : chaque ligne lue devient une écriture, un doublon ou un rejet motivé.
+const IMP_TYPES = {
+  banque: {label: "Banque", journal: "BQ", desc: "Relevé bancaire : chaque opération devient une écriture banque / contrepartie. Les contreparties sont proposées d'après le libellé ; ce qui n'est pas reconnu va au compte d'attente 471.",
+    fields: {date: "Date", libelle: "Libellé", piece: "Référence", debit: "Débit (sortie)", credit: "Crédit (entrée)", montant: "Montant signé", contre: "Compte de contrepartie"},
+    need: ["date"], needOne: ["debit", "credit", "montant"], nums: ["debit", "credit"], opts: {tresor: "521", contre: "471", sens: "banque"}},
+  caisse: {label: "Caisse", journal: "CA", desc: "Brouillard ou livre de caisse : entrées et sorties d'espèces, compte 571 contre la contrepartie proposée.",
+    fields: {date: "Date", libelle: "Libellé", piece: "N° de bon", credit: "Entrée", debit: "Sortie", montant: "Montant signé", contre: "Compte de contrepartie"},
+    need: ["date"], needOne: ["debit", "credit", "montant"], nums: ["credit", "debit"], opts: {tresor: "571", contre: "471", sens: "banque"}},
+  ventes: {label: "Ventes", journal: "VE", desc: "Liste ou journal des factures clients : client (411) au débit pour le TTC, ventes (70) et TVA facturée (4431) au crédit. Un montant négatif est traité comme un avoir.",
+    fields: {date: "Date", piece: "N° facture", compteTiers: "Compte client", tiers: "Client", libelle: "Libellé", compte: "Compte de produit", ht: "Montant HT", tva: "TVA", ttc: "Montant TTC"},
+    need: ["date"], needOne: ["ht", "ttc"], nums: ["ht", "tva", "ttc"], opts: {compte: "701", tiers: "411", tvaAcc: "4431", taux: 19}},
+  achats: {label: "Achats", journal: "AC", desc: "Liste ou journal des factures fournisseurs : charges (60 à 63) et TVA récupérable (4452) au débit, fournisseur (401) au crédit pour le TTC.",
+    fields: {date: "Date", piece: "N° facture", compteTiers: "Compte fournisseur", tiers: "Fournisseur", libelle: "Libellé", compte: "Compte de charge", ht: "Montant HT", tva: "TVA", ttc: "Montant TTC"},
+    need: ["date"], needOne: ["ht", "ttc"], nums: ["ht", "tva", "ttc"], opts: {compte: "601", tiers: "401", tvaAcc: "4452", taux: 19}},
+  paie: {label: "Paie", journal: "PA", desc: "État ou livre de paie d'un autre logiciel : une ligne par salarié, regroupées en une écriture de paie par date (661, 6641, 431, 4472, 4478, 421, 422).",
+    fields: {date: "Date ou mois", nom: "Salarié", brut: "Salaire brut", cnssSal: "CNSS salarié", its: "ITS", fssp: "FSSP", autres: "Avances et autres retenues", net: "Net à payer", patronal: "Charges patronales"},
+    need: ["brut"], needOne: [], nums: ["brut", "cnssSal", "its", "fssp", "autres", "net", "patronal"], opts: {date: ""}},
+  immo: {label: "Immobilisations", journal: "AC", desc: "Factures d'acquisition d'immobilisations : compte 2 au débit, TVA sur immobilisations (4451) et fournisseur d'investissements (481) au crédit. Chaque bien rejoint aussi le registre des immobilisations.",
+    fields: {date: "Date d'acquisition", piece: "N° facture", libelle: "Désignation", compte: "Compte d'immobilisation", tiers: "Fournisseur", ht: "Valeur HT", tva: "TVA", ttc: "Montant TTC", duree: "Durée (années)"},
+    need: ["date"], needOne: ["ht", "ttc"], nums: ["ht", "tva", "ttc", "duree"], opts: {compte: "2441", tiers: "481", tvaAcc: "4451", taux: 19, duree: 5}},
+  ecritures: {label: "Écritures / OD", journal: "OD", desc: "Écritures déjà ventilées (export d'un autre logiciel, grand livre, opérations diverses) : une ligne par compte, regroupées par pièce ; à défaut, jusqu'à l'équilibre.",
+    fields: {date: "Date", journal: "Journal", piece: "N° pièce", compte: "Compte", libelle: "Libellé", debit: "Débit", credit: "Crédit", montant: "Montant signé"},
+    need: ["date", "compte"], needOne: ["debit", "credit", "montant"], nums: ["debit", "credit"], opts: {}}
+};
+const HEAD_RE = {
+  date: /^date|^jour|^mois|^periode|date (op|fact|acq|piece|ecr)/, libelle: /libel|designation|description|intitule|operation|narration|motif|nature|objet/,
+  piece: /piece|facture|fact\b|^ref|reference|numero|^n ?°|^no\b|^num|bon/, debit: /debit|sortie|retrait|decaiss|depense/, credit: /credit|entree|depot|versement|encaiss|recette/,
+  montant: /^montant$|montant signe|amount|^valeur$/, contre: /contrepartie|imputation|compte contre/, compteTiers: /compte (client|fournisseur|tiers)|code (client|fournisseur|tiers)/,
+  tiers: /client|fournisseur|tiers|beneficiaire|raison sociale/, ht: /\bht\b|hors tax|^base|valeur ht|montant ht/, tva: /^tva|\btva\b|taxe sur la valeur/, ttc: /ttc|toutes taxes|^total$|net a payer/,
+  compte: /^compte|^cpt|n ?° ?compte|compte (de )?(produit|charge|immo|general|comptable)|^imputation/, journal: /journal|^jnl|code j/, nom: /^nom|salarie|employe|agent|personnel/,
+  brut: /brut/, cnssSal: /cnss|securite sociale|cotis/, its: /\bits\b|iuts|impot/, fssp: /fssp|effort|solidarite/, autres: /avance|retenue|pret|acompte|opposition/,
+  net: /^net|net a payer|net paye/, patronal: /patronal|employeur|part pat|charges soc/, duree: /duree|annees|nb ans|amortiss/
 };
 const RULES = [
-  [/frais|agios|commission|tenue de compte|cotisation carte|\bcom\b|sms banking|ticket/i, "631"],
+  [/frais|agios|commission|tenue de compte|cotisation carte|\bcom\b|sms banking|ticket|\btaf\b/i, "631"],
   [/cnss|caisse nationale de securite/i, "431"],
   [/salaire|paie|\bsal\b|remuneration/i, "422"],
+  [/\bfssp\b|solidarite pour la sauvegarde/i, "4478"],
   [/\btva\b/i, "4441"],
   [/\bdgi\b|impot|imp[oô]t|patente|\bits\b|taxe|tresor public/i, "442"],
   [/loyer|bail/i, "622"],
@@ -977,26 +1022,38 @@ const RULES = [
   [/carburant|gasoil|essence|sonidep|station/i, "6053"],
   [/assurance/i, "625"],
   [/interet|int[ée]r[eê]ts/i, "671"],
-  [/retrait|versement especes|versement esp|appro caisse/i, "585"]
+  [/fourniture|papeterie|cartouche|rame/i, "6055"],
+  [/retrait|versement especes|versement esp|appro(visionnement)? (de la )?caisse|alimentation (de la )?caisse/i, "585"]
 ];
-function guessContre(lib, entree) {
+function guessContre(lib, entree, def) {
   const s = strip(lib);
   for (const [re, acc] of RULES) if (re.test(s)) return acc;
   if (entree && /client|facture|fact\b|reglement|vir(ement)? recu|encaissement/.test(s)) return "411";
   if (!entree && /fournisseur|reglement fact|achat/.test(s)) return "401";
-  return IM.opts.contre;
+  return def;
 }
-const IM = {kind: "releve", file: null, fileType: "", rows: [], header: true, map: [], sheets: [], sheet: "", pdfLines: null, pdfMode: "releve", preview: [], groups: null,
-  opts: {journal: "BQ", tresor: "521", contre: "471", sens: "banque"}, busy: false, progress: ""};
+function hashId(str) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) { const c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
+}
+const IM = {type: "banque", file: null, fileType: "", rows: [], header: true, map: [], sheets: [], sheet: "", pdfLines: null, pdfMode: "releve", scanned: null, images: null,
+  opts: {}, res: null, done: null, busy: false, aiNote: ""};
+Object.keys(IMP_TYPES).forEach(k => IM.opts[k] = {...IMP_TYPES[k].opts});
+const IO = () => IM.opts[IM.type];
 
 async function readFile(file) {
   const name = file.name, ext = (name.split(".").pop() || "").toLowerCase();
-  IM.file = name; IM.rows = []; IM.pdfLines = null; IM.sheets = []; IM.preview = []; IM.groups = null;
+  Object.assign(IM, {file: name, rows: [], pdfLines: null, sheets: [], scanned: null, images: null, res: null, done: null, aiNote: ""});
+  if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) { IM.fileType = "Image"; IM.images = [file]; return; }
   const buf = await file.arrayBuffer();
   if (ext === "pdf") {
     IM.fileType = "PDF";
+    IM.pdfBuf = buf.slice(0);
     IM.pdfLines = await pdfLines(buf);
-    if (!IM.pdfLines.length) throw new Error("Ce PDF ne contient pas de texte lisible : c'est probablement un document scanné. Demandez le relevé à votre banque au format Excel ou CSV, ou passez le PDF par un logiciel de reconnaissance de texte (OCR).");
+    if (IM.pdfLines.length < 2) { IM.scanned = true; IM.pdfLines = null; return; }
     applyPdfMode();
   } else if (["xlsx", "xls", "xlsm", "ods"].includes(ext)) {
     IM.fileType = "Excel";
@@ -1011,31 +1068,39 @@ async function readFile(file) {
     IM.rows = parseText(text);
   }
   if (!IM.rows.length) throw new Error("Aucune ligne exploitable n'a été trouvée dans ce fichier.");
+  afterRows();
+}
+function afterRows() {
   IM.header = looksLikeHeader(IM.rows[0]);
+  const guess = guessType(); if (guess) IM.type = guess;
   autoMap();
 }
 function loadSheet() {
   const ws = IM.wb.Sheets[IM.sheet];
   IM.rows = XLSX.utils.sheet_to_json(ws, {header: 1, raw: true, defval: "", blankrows: false}).filter(r => r.some(c => String(c).trim() !== ""));
-  // Ignore les lignes de titre au-dessus du tableau : on démarre à la première ligne qui ressemble à un en-tête.
   const hi = IM.rows.slice(0, 15).findIndex(looksLikeHeader);
+  IM.titleRows = hi > 0 ? hi : 0;
   if (hi > 0) IM.rows = IM.rows.slice(hi);
 }
 function parseText(text) {
   const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim());
   if (!lines.length) return [];
-  const sample = lines.slice(0, 20);
-  const cands = [";", "\t", "|", ","];
+  const sample = lines.slice(0, 30);
   let best = null, bestScore = 0;
-  for (const d of cands) {
-    const counts = sample.map(l => splitCSV(l, d).length);
-    const mode = counts.sort((a, b) => a - b)[Math.floor(counts.length / 2)];
-    const consistent = counts.filter(c => c === mode).length / counts.length;
-    const score = mode > 1 ? mode * consistent : 0;
+  for (const d of [";", "\t", "|", ","]) {
+    const counts = sample.map(l => splitCSV(l, d).length).sort((a, b) => a - b);
+    const mode = counts[Math.floor(counts.length / 2)];
+    const score = mode > 1 ? mode * counts.filter(c => c === mode).length / counts.length : 0;
     if (score > bestScore) { bestScore = score; best = d; }
   }
   if (best) return lines.map(l => splitCSV(l, best).map(c => c.trim()));
-  return lines.map(l => l.trim().split(/\s{2,}|\t/).map(c => c.trim()));
+  // Texte à colonnes alignées : on découpe sur les blancs multiples, et on isole date et montants en bout de ligne.
+  return lines.map(l => {
+    const cells = l.trim().split(/\s{2,}|\t/).map(c => c.trim());
+    if (cells.length > 1) return cells;
+    const m = l.trim().match(/^(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})\s+(.*?)((?:\s+-?[\d][\d .,]*\d)+)$/);
+    return m ? [m[1], m[2], ...m[3].trim().split(/\s+(?=-?\d{1,3}(?:[ .]\d{3})*(?:,\d+)?(?:\s|$))/)] : cells;
+  });
 }
 function splitCSV(line, d) {
   const out = []; let cur = "", q = false;
@@ -1049,49 +1114,59 @@ function splitCSV(line, d) {
 function looksLikeHeader(row) {
   if (!row) return false;
   const txt = row.map(c => strip(c)).join(" ");
-  const hits = ["date", "libel", "debit", "credit", "compte", "montant", "piece", "journal", "solde", "operation", "description", "designation"].filter(w => txt.includes(w)).length;
+  const hits = ["date", "libel", "debit", "credit", "compte", "montant", "piece", "journal", "solde", "operation", "description", "designation", "ht", "ttc", "tva", "brut", "net", "client", "fournisseur", "salarie", "entree", "sortie"].filter(w => new RegExp("\\b" + w).test(txt)).length;
   return hits >= 2 && !row.some(c => c instanceof Date);
 }
+function guessType() {
+  if (!IM.header) return null;
+  const t = strip(IM.rows[0].join(" "));
+  if (/brut/.test(t) && /(net|cnss|its)/.test(t)) return "paie";
+  if (/(immobilisation|duree|amortiss)/.test(t)) return "immo";
+  if (/\bht\b|ttc/.test(t)) return /fournisseur|achat/.test(t) ? "achats" : /client|vente/.test(t) ? "ventes" : null;
+  if (/compte/.test(t) && /debit/.test(t) && /credit/.test(t)) return "ecritures";
+  if (/entree/.test(t) && /sortie/.test(t)) return "caisse";
+  return null;
+}
 function autoMap() {
-  const n = Math.max(...IM.rows.slice(0, 30).map(r => r.length));
+  const T = IMP_TYPES[IM.type];
+  const n = Math.max(1, ...IM.rows.slice(0, 40).map(r => r.length));
   const head = IM.header ? IM.rows[0] : [];
   const used = new Set();
-  const tests = IM.kind === "releve"
-    ? [["date", /^date|date op|jour/], ["libelle", /libel|designation|description|intitule|operation|narration|motif|nature/], ["debit", /debit|sortie|retrait|decaiss/], ["credit", /credit|entree|depot|versement|encaiss/], ["montant", /montant|amount|valeur$/]]
-    : [["date", /^date|jour/], ["journal", /journal|jnl|code j/], ["piece", /piece|ref|numero|n°/], ["compte", /compte|cpt|account|n° compte/], ["libelle", /libel|designation|description|intitule/], ["debit", /debit/], ["credit", /credit/]];
   IM.map = Array(n).fill("");
+  const order = Object.keys(T.fields);
   head.forEach((h, i) => {
-    const s = strip(h);
-    if (/solde|balance|date val/.test(s)) return;
-    for (const [f, re] of tests) if (!used.has(f) && re.test(s)) { IM.map[i] = f; used.add(f); break; }
+    const s = strip(h).replace(/[°º]/g, "°").trim();
+    if (!s || /solde|^balance|date val/.test(s)) return;
+    for (const f of order) if (!used.has(f) && HEAD_RE[f] && HEAD_RE[f].test(s)) { IM.map[i] = f; used.add(f); break; }
   });
-  if (!used.size) { // pas d'en-tête : deviner sur le contenu
-    const body = IM.rows.slice(0, 30);
-    for (let i = 0; i < n; i++) {
-      const col = body.map(r => r[i]).filter(v => v !== "" && v !== undefined);
-      if (!col.length) continue;
-      const dates = col.filter(v => parseDate(v, 2026)).length / col.length;
-      const nums = col.filter(v => parseAmount(v) !== null).length / col.length;
-      const accs = col.filter(v => /^[1-8]\d{2,9}$/.test(normAcc(v))).length / col.length;
-      if (!used.has("date") && dates > .7) { IM.map[i] = "date"; used.add("date"); }
-      else if (IM.kind === "ecritures" && !used.has("compte") && accs > .7) { IM.map[i] = "compte"; used.add("compte"); }
-      else if (nums > .6) { const f = IM.kind === "releve" ? (!used.has("debit") ? "debit" : !used.has("credit") ? "credit" : "") : (!used.has("debit") ? "debit" : !used.has("credit") ? "credit" : ""); if (f) { IM.map[i] = f; used.add(f); } }
-      else if (!used.has("libelle") && nums < .3) { IM.map[i] = "libelle"; used.add("libelle"); }
-    }
+  if (used.size >= 2) return;
+  const body = IM.rows.slice(IM.header ? 1 : 0, 40);
+  const yr = (S.societe.debut || "").slice(0, 4) || new Date().getFullYear();
+  const nums = [...T.nums];
+  for (let i = 0; i < n; i++) {
+    if (IM.map[i]) continue;
+    const col = body.map(r => r[i]).filter(v => v !== "" && v !== undefined && v !== null);
+    if (!col.length) continue;
+    const ratio = f => col.filter(f).length / col.length;
+    if (!used.has("date") && T.fields.date && ratio(v => parseDate(v, yr)) > .7) { IM.map[i] = "date"; used.add("date"); continue; }
+    if (T.fields.compte && !used.has("compte") && ratio(v => /^[1-8]\d{2,11}$/.test(normAcc(v))) > .7) { IM.map[i] = "compte"; used.add("compte"); continue; }
+    if (ratio(v => parseAmount(v) !== null) > .6) { const f = nums.find(x => !used.has(x)); if (f) { IM.map[i] = f; used.add(f); } continue; }
+    const txt = T.fields.libelle ? "libelle" : T.fields.nom ? "nom" : null;
+    if (txt && !used.has(txt)) { IM.map[i] = txt; used.add(txt); }
   }
 }
 
+async function pdfJs() { await loadScript(PDF_URL); await loadScript(PDFW_URL); const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = PDFW_URL; return lib; }
 async function pdfLines(buf) {
-  await loadScript(PDF_URL); await loadScript(PDFW_URL);
-  const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = PDFW_URL;
+  const lib = await pdfJs();
   const pdf = await lib.getDocument({data: new Uint8Array(buf), isEvalSupported: false}).promise;
   const lines = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p); const tc = await page.getTextContent();
-    const items = tc.items.filter(it => it.str && it.str.trim()).map(it => ({s: it.str, x: it.transform[4], y: it.transform[5], w: it.width}));
+    const items = tc.items.filter(it => it.str && it.str.trim()).map(it => ({s: it.str, x: it.transform[4], y: it.transform[5], w: it.width, h: Math.abs(it.transform[3]) || 8}));
     items.sort((a, b) => b.y - a.y || a.x - b.x);
     let cur = null;
-    for (const it of items) { if (!cur || Math.abs(cur.y - it.y) > 3) { cur = {y: it.y, page: p, items: []}; lines.push(cur); } cur.items.push(it); }
+    for (const it of items) { if (!cur || Math.abs(cur.y - it.y) > Math.max(2.5, it.h * 0.45)) { cur = {y: it.y, page: p, items: []}; lines.push(cur); } cur.items.push(it); }
   }
   for (const ln of lines) {
     ln.items.sort((a, b) => a.x - b.x);
@@ -1113,16 +1188,22 @@ function applyPdfMode() {
   for (const l of lines) {
     const cells = l.cells.map(c => ({...c}));
     const t = strip(cells.map(c => c.s).join(" "));
-    if (!header && /date/.test(t) && /(debit|credit|retrait|depot|montant)/.test(t)) { header = cells; last = null; continue; }
+    if (!header && /date/.test(t) && /(debit|credit|retrait|depot|montant|ht|ttc|entree|sortie)/.test(t)) { header = cells; last = null; continue; }
     let i = 0, date = null;
     if (cells.length && DATE_CELL.test(cells[0].s)) { date = cells[0].s; i = 1; }
     else if (cells.length) { const m = cells[0].s.match(/^(\d{1,2}[\/.\-]\d{1,2}(?:[\/.\-]\d{2,4})?)\s+(.+)$/); if (m) { date = m[1]; cells[0].s = m[2]; } }
-    if (date && cells[i] && DATE_CELL.test(cells[i].s)) i++; // date de valeur
+    if (date && cells[i] && DATE_CELL.test(cells[i].s)) i++;
     let j = cells.length; while (j > i && isAmt(cells[j - 1].s)) j--;
     const text = cells.slice(i, j).map(c => c.s).join(" ");
     const amts = cells.slice(j);
-    if (date && amts.length) { last = {date, lib: text, amts: amts.map(c => ({v: c.s, x: c.x2})), page: l.page}; recs.push(last); amts.forEach(c => xs.push(c.x2)); }
-    else if (!date && last && !amts.length && text && text.length < 90 && l.page === last.page) last.lib += " " + text;
+    if (date && amts.length) { last = {date, lib: text, amts: amts.map(c => ({v: c.s, x: c.x2})), page: l.page, y: l.y}; recs.push(last); amts.forEach(c => xs.push(c.x2)); }
+    else if (date && !amts.length) { last = {date, lib: text, amts: [], page: l.page, y: l.y, pending: true}; recs.push(last); }
+    else if (!date && last && last.page === l.page && Math.abs(last.y - l.y) < 40) {
+      // Ligne de suite : libellé sur deux lignes, ou montants passés à la ligne.
+      if (text && text.length < 120) last.lib += " " + text;
+      if (amts.length && last.pending) { last.amts = amts.map(c => ({v: c.s, x: c.x2})); amts.forEach(c => xs.push(c.x2)); last.pending = false; }
+      last.y = l.y;
+    }
     else last = null;
   }
   xs.sort((a, b) => a - b);
@@ -1130,7 +1211,7 @@ function applyPdfMode() {
   xs.forEach(x => { const c = clusters[clusters.length - 1]; if (c && x - c.max < 18) { c.max = x; c.sum += x; c.n++; } else clusters.push({min: x, max: x, sum: x, n: 1}); });
   const cols = clusters.filter(c => c.n >= Math.max(1, recs.length * 0.04)).map(c => ({x: c.sum / c.n, name: ""}));
   if (header) header.forEach(h => {
-    const s = strip(h.s); if (!/(debit|credit|solde|retrait|depot|montant|sortie|entree)/.test(s)) return;
+    const s = strip(h.s); if (!/(debit|credit|solde|retrait|depot|montant|sortie|entree|\bht\b|ttc|tva)/.test(s)) return;
     let best = null, bd = 1e9; cols.forEach(c => { const d = Math.min(Math.abs(c.x - h.x2), Math.abs(c.x - (h.x + h.x2) / 2)); if (d < bd) { bd = d; best = c; } });
     if (best && bd < 90 && !best.name) best.name = h.s;
   });
@@ -1144,38 +1225,209 @@ function applyPdfMode() {
   if (IM.rows.length === 1) IM.rows = lines.map(l => l.cells.map(c => c.s));
 }
 
-function buildPreview() {
+/* --- Conversion des lignes en écritures --- */
+function parseDateX(v, yr) {
+  const d = parseDate(v, yr); if (d) return d;
+  const s = strip(v).trim();
+  let m = s.match(/^(\d{1,2})[\/.\-](\d{4})$/); if (m) return lastDay(`${m[2]}-${String(+m[1]).padStart(2, "0")}`);
+  m = s.match(/^(\d{4})[\/.\-](\d{1,2})$/); if (m) return lastDay(`${m[1]}-${String(+m[2]).padStart(2, "0")}`);
+  const MOIS = {janvier: 1, janv: 1, jan: 1, fevrier: 2, fevr: 2, fev: 2, mars: 3, avril: 4, avr: 4, mai: 5, juin: 6, juillet: 7, juil: 7, aout: 8, septembre: 9, sept: 9, sep: 9, octobre: 10, oct: 10, novembre: 11, nov: 11, decembre: 12, dec: 12};
+  m = s.match(/^(\d{1,2})[\s\-.\/]+([a-z]+)\.?[\s\-.\/]+(\d{2,4})$/); if (m && MOIS[m[2]]) return parseDate(`${m[1]}/${MOIS[m[2]]}/${m[3]}`);
+  m = s.match(/^([a-z]+)\.?[\s\-\/]+(\d{4})$/); if (m && MOIS[m[1]]) return lastDay(`${m[2]}-${String(MOIS[m[1]]).padStart(2, "0")}`);
+  return null;
+}
+function buildImport() {
+  const T = IMP_TYPES[IM.type], O = IO();
   const yr = (S.societe.debut || "").slice(0, 4) || new Date().getFullYear();
-  const body = IM.header ? IM.rows.slice(1) : IM.rows;
-  const col = f => IM.map.indexOf(f);
-  const get = (r, f) => { const i = col(f); return i >= 0 ? r[i] : ""; };
-  if (IM.kind === "releve") {
-    IM.preview = [];
+  const off = IM.header ? 1 : 0, base = (IM.titleRows || 0) + off + 1;
+  const body = IM.rows.slice(off);
+  const ci = f => IM.map.indexOf(f);
+  const raw = (r, f) => { const i = ci(f); return i >= 0 ? r[i] : ""; };
+  const txt = (r, f) => String(raw(r, f) ?? "").trim();
+  const num = (r, f) => { const v = parseAmount(raw(r, f)); return v === null ? 0 : v; };
+  const accOr = (r, f, def) => { const a = normAcc(raw(r, f)); return a && accountValid(a) ? a : def; };
+  const lineNo = k => base + k;
+  const show = r => r.map(c => c instanceof Date ? fmtDate(parseDate(c)) : String(c ?? "")).filter(Boolean).join(" · ").slice(0, 140);
+  const rejects = [], props = [], seen = {};
+  const have = new Set(S.ecritures.map(e => e.id));
+  const mk = (key, entry, src, extra = {}) => {
+    seen[key] = (seen[key] || 0) + 1;
+    const id = "imp" + hashId(IM.type + "|" + key + "|" + seen[key]);
+    props.push({id, entry: {id, ...entry, source: "import:" + IM.file}, src, keep: !have.has(id), dup: have.has(id), ...extra});
+  };
+  const rej = (k, r, reason) => rejects.push({line: lineNo(k), text: show(r), reason});
+  const blank = r => !r.some(c => String(c ?? "").trim() !== "");
+  const isTotal = r => r.some(c => /^(sous.?)?total|^report|^solde/.test(strip(c).trim()));
+  let lastDate = null;
+
+  if (IM.type === "banque" || IM.type === "caisse") {
     body.forEach((r, k) => {
-      const date = parseDate(get(r, "date"), yr); if (!date) return;
-      let sortie = Math.abs(parseAmount(get(r, "debit")) || 0), entree = Math.abs(parseAmount(get(r, "credit")) || 0);
-      if (col("montant") >= 0) { const m = parseAmount(get(r, "montant")) || 0; if (m < 0) sortie = -m; else entree = m; }
-      if (IM.opts.sens === "entreprise") [sortie, entree] = [entree, sortie];
-      const montant = r2(entree - sortie); if (!montant) return;
-      const lib = String(get(r, "libelle") || "").trim() || "Opération importée";
-      IM.preview.push({k, keep: true, date, lib, montant, contre: guessContre(lib, montant > 0)});
+      if (blank(r)) return;
+      const ds = raw(r, "date"); const date = parseDateX(ds, yr);
+      const lib = txt(r, "libelle") || "Opération importée";
+      let sortie = Math.abs(num(r, "debit")), entree = Math.abs(num(r, "credit"));
+      if (ci("montant") >= 0) { const m = num(r, "montant"); if (m < 0) sortie = -m; else if (m > 0) entree = m; }
+      if (O.sens === "entreprise") [sortie, entree] = [entree, sortie];
+      const montant = r2(entree - sortie);
+      if (!date) {
+        if (isTotal(r) || /solde|report|total|a nouveau/.test(strip(lib))) return rej(k, r, "Ligne de solde ou de total, non importée");
+        return rej(k, r, ds ? `Date illisible : « ${String(ds).slice(0, 20)} »` : "Date absente");
+      }
+      if (!montant) return rej(k, r, "Montant nul ou illisible");
+      const contre = accOr(r, "contre", null) || guessContre(lib, montant > 0, O.contre);
+      mk(`${date}|${lib}|${montant}`, {date, journal: T.journal, piece: txt(r, "piece"), libelle: lib, montant}, [lineNo(k)], {contre, montant, lib, date});
+    });
+  } else if (IM.type === "ventes" || IM.type === "achats" || IM.type === "immo") {
+    body.forEach((r, k) => {
+      if (blank(r)) return;
+      const ds = raw(r, "date"); const date = parseDateX(ds, yr);
+      if (!date && isTotal(r)) return rej(k, r, "Ligne de total, non importée");
+      if (!date) return rej(k, r, ds ? `Date illisible : « ${String(ds).slice(0, 20)} »` : "Date absente");
+      let ht = num(r, "ht"), tva = num(r, "tva"), ttc = num(r, "ttc");
+      const taux = +O.taux || 0;
+      if (ht && ttc && !tva) tva = r2(ttc - ht);
+      else if (ht && !ttc) { if (!tva && ci("tva") < 0) tva = r2(ht * taux / 100); ttc = r2(ht + tva); }
+      else if (!ht && ttc) { if (!tva && ci("tva") < 0) tva = r2(ttc - ttc / (1 + taux / 100)); ht = r2(ttc - tva); }
+      if (!ttc) return rej(k, r, "Montants HT et TTC absents ou nuls");
+      if (Math.abs(r2(ht + tva - ttc)) > 1) return rej(k, r, `HT + TVA ≠ TTC (écart de ${fmt0(ht + tva - ttc)})`);
+      const avoir = ttc < 0; ht = Math.abs(ht); tva = Math.abs(tva); ttc = Math.abs(ttc);
+      const tiersNom = txt(r, "tiers"), piece = txt(r, "piece");
+      const compte = accOr(r, "compte", O.compte), tiers = accOr(r, "compteTiers", O.tiers);
+      if (IM.type === "immo" && (!/^2/.test(compte) || /^2[89]/.test(compte))) return rej(k, r, `Le compte ${compte} n'est pas un compte d'immobilisation (classe 2, hors 28 et 29)`);
+      const lib = txt(r, "libelle") || [IM.type === "ventes" ? "Facture client" : IM.type === "achats" ? "Facture fournisseur" : "Acquisition", piece, tiersNom].filter(Boolean).join(" ");
+      const L = IM.type === "ventes"
+        ? [{compte: tiers, debit: ttc, credit: 0}, {compte, debit: 0, credit: ht}, ...(tva ? [{compte: O.tvaAcc, debit: 0, credit: tva}] : [])]
+        : [{compte, debit: ht, credit: 0}, ...(tva ? [{compte: O.tvaAcc, debit: tva, credit: 0}] : []), {compte: tiers, debit: 0, credit: ttc}];
+      const lignes = L.map(l => ({...l, libelle: lib, ...(avoir ? {debit: l.credit, credit: l.debit} : {})}));
+      const extra = IM.type === "immo" ? {immo: {date, libelle: lib, compte, valeur: ht, duree: Math.max(1, num(r, "duree") || +O.duree || 5), service: date}} : {};
+      mk(`${date}|${piece}|${tiersNom}|${ttc}|${avoir}`, {date, journal: T.journal, piece, libelle: (avoir ? "Avoir · " : "") + lib, lignes}, [lineNo(k)], extra);
+    });
+  } else if (IM.type === "paie") {
+    const groups = new Map();
+    body.forEach((r, k) => {
+      if (blank(r)) return;
+      const ds = raw(r, "date");
+      const date = parseDateX(ds, yr) || (ci("date") < 0 || !String(ds ?? "").trim() ? O.date || null : null);
+      const nom = txt(r, "nom");
+      if (/^total|^sous.?total/.test(strip(nom))) return rej(k, r, "Ligne de total, non importée");
+      if (!date) return rej(k, r, ds ? `Date ou mois illisible : « ${String(ds).slice(0, 20)} »` : "Date absente : indiquez le mois de paie ci-dessous");
+      const v = {brut: num(r, "brut"), cnssSal: num(r, "cnssSal"), its: num(r, "its"), fssp: num(r, "fssp"), autres: num(r, "autres"), patronal: num(r, "patronal")};
+      if (!v.brut) return rej(k, r, "Salaire brut absent ou nul");
+      const calc = r2(v.brut - v.cnssSal - v.its - v.fssp - v.autres);
+      const net = ci("net") >= 0 ? num(r, "net") : calc;
+      if (Math.abs(net - calc) > 1) return rej(k, r, `Net à payer (${fmt0(net)}) ≠ brut − retenues (${fmt0(calc)}) : une retenue n'est pas associée`);
+      if (!groups.has(date)) groups.set(date, {date, n: 0, src: [], t: {brut: 0, cnssSal: 0, its: 0, fssp: 0, autres: 0, patronal: 0, net: 0}});
+      const g = groups.get(date); g.n++; g.src.push(lineNo(k));
+      Object.keys(g.t).forEach(x => g.t[x] += x === "net" ? net : v[x]);
+    });
+    groups.forEach(g => {
+      const t = g.t, lib = `Paie importée du ${fmtDate(g.date)} (${g.n} salarié${g.n > 1 ? "s" : ""})`, L = [];
+      const add = (compte, d, c, l) => { if (r2(d) || r2(c)) L.push({compte, libelle: l, debit: r2(d), credit: r2(c)}); };
+      add("661", t.brut, 0, "Salaires bruts"); add("6641", t.patronal, 0, "Charges patronales");
+      add("431", 0, t.cnssSal + t.patronal, "Cotisations CNSS"); add("4472", 0, t.its, "ITS retenu"); add("4478", 0, t.fssp, "Prélèvement FSSP");
+      add("421", 0, t.autres, "Avances et retenues"); add("422", 0, t.net, "Salaires nets à payer");
+      mk(`${g.date}|${r2(t.brut)}|${r2(t.net)}|${g.n}`, {date: g.date, journal: "PA", piece: "", libelle: lib, lignes: L}, g.src);
     });
   } else {
-    const rows = body.map(r => ({date: parseDate(get(r, "date"), yr), journal: String(get(r, "journal") || "").trim().toUpperCase().slice(0, 4), piece: String(get(r, "piece") || "").trim(),
-      compte: normAcc(get(r, "compte")), libelle: String(get(r, "libelle") || "").trim(), debit: r2(Math.abs(parseAmount(get(r, "debit")) || 0)), credit: r2(Math.abs(parseAmount(get(r, "credit")) || 0))}))
-      .filter(l => l.compte && (l.debit || l.credit));
-    const groups = []; let g = null, lastDate = null;
-    const hasPiece = col("piece") >= 0;
-    rows.forEach(l => {
-      if (l.date) lastDate = l.date; else l.date = lastDate;
-      const key = hasPiece ? (l.journal || IM.opts.journal) + "|" + l.piece + "|" + (l.piece ? "" : l.date) : null;
-      const startNew = !g || (hasPiece ? key !== g.key : r2(g.d - g.c) === 0);
-      if (startNew) { g = {key, date: l.date, journal: l.journal || IM.opts.journal, piece: l.piece, lignes: [], d: 0, c: 0}; groups.push(g); }
-      g.lignes.push({compte: l.compte, libelle: l.libelle, debit: l.debit, credit: l.credit}); g.d = r2(g.d + l.debit); g.c = r2(g.c + l.credit);
+    const rows = [];
+    body.forEach((r, k) => {
+      if (blank(r)) return;
+      const ds = raw(r, "date"), d = parseDateX(ds, yr);
+      if (d) lastDate = d;
+      const compte = normAcc(raw(r, "compte"));
+      let debit = Math.abs(num(r, "debit")), credit = Math.abs(num(r, "credit"));
+      if (ci("montant") >= 0) { const m = num(r, "montant"); if (m > 0) debit = m; else if (m < 0) credit = -m; }
+      if (!compte && !debit && !credit) return rej(k, r, "Ligne sans compte ni montant (titre ou total)");
+      if (!compte) return rej(k, r, "Compte absent");
+      if (!accountValid(compte)) return rej(k, r, `Compte ${compte} absent du plan comptable : ajoutez-le puis relancez`);
+      if (!debit && !credit) return rej(k, r, "Montant nul ou illisible");
+      if (!d && !lastDate) return rej(k, r, ds ? `Date illisible : « ${String(ds).slice(0, 20)} »` : "Date absente");
+      rows.push({k, r, date: d || lastDate, journal: txt(r, "journal").toUpperCase().slice(0, 4) || T.journal, piece: txt(r, "piece"), compte, libelle: txt(r, "libelle"), debit: r2(debit), credit: r2(credit)});
     });
-    groups.forEach(x => { x.ok = x.d === x.c && x.lignes.length >= 2 && !!x.date; x.badAcc = x.lignes.filter(l => !accountValid(l.compte)).map(l => l.compte); });
-    IM.groups = groups;
+    const hasPiece = ci("piece") >= 0;
+    const groups = []; let g = null;
+    rows.forEach(l => {
+      const key = hasPiece ? `${l.journal}|${l.piece || l.date}` : null;
+      if (!g || (hasPiece ? key !== g.key : r2(g.d - g.c) === 0)) { g = {key, date: l.date, journal: l.journal, piece: l.piece, lignes: [], rows: [], d: 0, c: 0}; groups.push(g); }
+      g.lignes.push({compte: l.compte, libelle: l.libelle, debit: l.debit, credit: l.credit}); g.rows.push(l); g.d = r2(g.d + l.debit); g.c = r2(g.c + l.credit);
+    });
+    groups.forEach(x => {
+      if (x.d !== x.c || x.lignes.length < 2) { x.rows.forEach(l => rej(l.k, l.r, `Pièce ${x.piece || fmtDate(x.date)} déséquilibrée : débit ${fmt0(x.d)}, crédit ${fmt0(x.c)}`)); return; }
+      const lib = x.lignes.find(l => l.libelle)?.libelle || "Écriture importée";
+      mk(`${x.date}|${x.journal}|${x.piece}|${x.d}|${x.lignes.map(l => l.compte).join(",")}`, {date: x.date, journal: x.journal, piece: x.piece, libelle: lib, lignes: x.lignes.map(l => ({...l, libelle: l.libelle || lib}))}, x.rows.map(l => lineNo(l.k)));
+    });
   }
+  const counts = {};
+  props.forEach(p => { const j = p.entry.journal; counts[j] = counts[j] ?? S.ecritures.filter(e => e.journal === j).length; if (!p.entry.piece && !p.dup) p.entry.piece = `${j}-${String(++counts[j]).padStart(4, "0")}`; });
+  const read = body.filter(r => !blank(r)).length;
+  IM.res = {props, rejects, read};
+}
+function finalEntry(p) {
+  if (IM.type !== "banque" && IM.type !== "caisse") return p.entry;
+  const O = IO(), m = Math.abs(p.montant), lib = p.lib, e = p.entry;
+  const lignes = p.montant > 0
+    ? [{compte: O.tresor, libelle: lib, debit: m, credit: 0}, {compte: p.contre, libelle: lib, debit: 0, credit: m}]
+    : [{compte: p.contre, libelle: lib, debit: m, credit: 0}, {compte: O.tresor, libelle: lib, debit: 0, credit: m}];
+  return {id: e.id, date: e.date, journal: e.journal, piece: e.piece, libelle: e.libelle, lignes, source: e.source};
+}
+function templateRows(type) {
+  const y = (S.societe.debut || "2026").slice(0, 4);
+  const T = {
+    banque: [["Date", "Libellé", "Référence", "Débit", "Crédit"], [`05/01/${y}`, "VIREMENT RECU CLIENT ALPHA FACT 12", "VIR001", "", 1180000], [`07/01/${y}`, "FRAIS TENUE DE COMPTE", "", 12500, ""]],
+    caisse: [["Date", "Libellé", "N° de bon", "Entrée", "Sortie"], [`03/01/${y}`, "Approvisionnement caisse", "BC01", 200000, ""], [`04/01/${y}`, "Achat fournitures de bureau", "BC02", "", 35000]],
+    ventes: [["Date", "N° facture", "Client", "Compte client", "Libellé", "Compte de produit", "Montant HT", "TVA", "Montant TTC"], [`10/01/${y}`, "FV-001", "Société Alpha", "411", "Prestation de conseil", "706", 1000000, 190000, 1190000]],
+    achats: [["Date", "N° facture", "Fournisseur", "Compte fournisseur", "Libellé", "Compte de charge", "Montant HT", "TVA", "Montant TTC"], [`12/01/${y}`, "F-245", "SONIDEP", "401", "Carburant", "6053", 250000, 47500, 297500]],
+    paie: [["Mois", "Salarié", "Salaire brut", "CNSS salarié", "ITS", "FSSP", "Avances et autres retenues", "Net à payer", "Charges patronales"], [`01/${y}`, "Aïchatou Moussa", 320000, 16800, 30610, 2726, 0, 269864, 54080]],
+    immo: [["Date d'acquisition", "N° facture", "Désignation", "Compte d'immobilisation", "Fournisseur", "Valeur HT", "TVA", "Montant TTC", "Durée (années)"], [`15/01/${y}`, "F-880", "Ordinateur portable", "2442", "Info Plus", 600000, 114000, 714000, 3]],
+    ecritures: [["Date", "Journal", "N° pièce", "Compte", "Libellé", "Débit", "Crédit"], [`31/01/${y}`, "OD", "OD-001", "6641", "Charges sociales janvier", 52480, ""], [`31/01/${y}`, "OD", "OD-001", "431", "Charges sociales janvier", "", 52480]]
+  };
+  return T[type];
+}
+
+/* --- Aide de Claude : identification des colonnes et lecture des documents scannés --- */
+async function claudeMapColumns() {
+  const sample = await claudeUse("sample");
+  if (!sample) return toast("Claude n'est pas disponible ici : ouvrez l'application dans Claude, avec une connexion internet.", "bad");
+  const show = v => v instanceof Date ? fmtDate(parseDate(v)) : String(v ?? "");
+  const rows = IM.rows.slice(0, 14).map((r, i) => `${i}: ` + r.map(show).join(" | ")).join("\n");
+  const types = Object.entries(IMP_TYPES).map(([k, t]) => `- ${k} : ${t.label}. Champs : ${Object.entries(t.fields).map(([f, l]) => `${f} (${l})`).join(", ")}`).join("\n");
+  IM.aiNote = "Claude analyse les colonnes…"; VIEWS.import.draw($("#view"));
+  try {
+    const res = await sample.json(`Tu aides à importer un fichier dans un logiciel comptable SYSCOHADA (Niger). Voici les premières lignes du fichier « ${IM.file} » (numéro de ligne, puis cellules séparées par « | ») :\n${rows}\n\nTypes d'import possibles et leurs champs :\n${types}\n\nDétermine le type le plus probable, si la ligne 0 est une ligne d'en-têtes, et associe chaque colonne (index à partir de 0) à un champ du type choisi ou à "" si la colonne doit être ignorée (solde, cumul, colonnes vides). Réponds uniquement en JSON : {"type": "banque", "header": true, "map": ["date","libelle","",...], "remarque": "une phrase en français"}`, {modelTier: "quick"});
+    if (!res || !IMP_TYPES[res.type] || !Array.isArray(res.map)) throw {code: "invalid_json"};
+    IM.type = res.type; IM.header = !!res.header;
+    const F = IMP_TYPES[IM.type].fields, n = Math.max(IM.map.length, res.map.length), used = new Set();
+    IM.map = Array.from({length: n}, (_, i) => { const f = String(res.map[i] || ""); if (F[f] && !used.has(f)) { used.add(f); return f; } return ""; });
+    IM.res = null; IM.aiNote = "Proposition de Claude appliquée" + (res.remarque ? " : " + String(res.remarque).replace(/\.?\s*$/, ".") : ".") + " Vérifiez avant de préparer les écritures.";
+  } catch (e) { IM.aiNote = ""; toast(aiError(e), "bad"); }
+  VIEWS.import.draw($("#view"));
+}
+async function claudeReadDocument() {
+  const sample = await claudeUse("sample");
+  if (!sample) return toast("Claude n'est pas disponible ici : ouvrez l'application dans Claude, avec une connexion internet.", "bad");
+  const lim = await sample.limits().catch(() => null);
+  if (!lim || !lim.images) return toast("Cette vue ne permet pas d'envoyer des images à Claude.", "bad");
+  IM.aiNote = "Préparation des pages…"; VIEWS.import.draw($("#view"));
+  try {
+    let blobs = IM.images || [];
+    if (IM.pdfBuf) {
+      const lib = await pdfJs(); const pdf = await lib.getDocument({data: new Uint8Array(IM.pdfBuf.slice(0)), isEvalSupported: false}).promise;
+      blobs = [];
+      for (let p = 1; p <= Math.min(pdf.numPages, lim.images.maxCount, 8); p++) {
+        const page = await pdf.getPage(p), vp = page.getViewport({scale: 1.7}), cv = document.createElement("canvas");
+        cv.width = vp.width; cv.height = vp.height; await page.render({canvasContext: cv.getContext("2d"), viewport: vp}).promise;
+        blobs.push(await new Promise(r => cv.toBlob(r, "image/png")));
+      }
+    }
+    IM.aiNote = `Claude lit ${blobs.length} page(s)…`; VIEWS.import.draw($("#view"));
+    const res = await sample.json(`Ces images sont les pages d'un document comptable scanné (relevé bancaire, brouillard de caisse, liste de factures, état de paie ou registre). Recopie fidèlement le tableau principal, ligne par ligne, sans rien inventer ni arrondir. Ignore les en-têtes de page répétés. Réponds uniquement en JSON : {"type": "banque|caisse|ventes|achats|paie|immo|ecritures", "rows": [["en-tête 1","en-tête 2",...],["cellule",...],...]} avec la première ligne pour les en-têtes de colonnes et les montants tels qu'écrits.`, {images: blobs});
+    if (!res || !Array.isArray(res.rows) || res.rows.length < 2) throw {code: "invalid_json"};
+    IM.rows = res.rows.map(r => (Array.isArray(r) ? r : [r]).map(c => c === null ? "" : c));
+    IM.scanned = null; IM.fileType += " lu par Claude";
+    afterRows(); if (IMP_TYPES[res.type]) { IM.type = res.type; autoMap(); }
+    IM.aiNote = `Claude a recopié ${IM.rows.length - 1} ligne(s). Contrôlez-les avec le document original avant d'importer.`;
+  } catch (e) { IM.aiNote = ""; toast(aiError(e), "bad"); }
+  VIEWS.import.draw($("#view"));
 }
 
 VIEWS.import = {
@@ -1183,152 +1435,225 @@ VIEWS.import = {
   mount(el) {
     el.innerHTML = `
     <div class="card">
-      <div class="card-h"><div><h2>1. Que contient le fichier ?</h2><p>Le type choisi détermine la façon dont les lignes deviennent des écritures.</p></div>
-        <div class="seg" role="group" aria-label="Type de fichier"><button data-kind="releve">Relevé bancaire ou de caisse</button><button data-kind="ecritures">Écritures comptables</button></div></div>
-      <p class="note" id="kind-help"></p>
+      <div class="card-h"><div><h2>1. Type de données</h2><p>Choisissez ce que contient le fichier ; le type est aussi deviné à partir des en-têtes.</p></div>
+        <button class="btn sm" id="im-tpl">Modèle Excel de ce type</button></div>
+      <div class="seg" role="group" aria-label="Type de données">${Object.entries(IMP_TYPES).map(([k, t]) => `<button data-type="${k}">${t.label}</button>`).join("")}</div>
+      <p class="note" id="type-help" style="margin-top:10px"></p>
       <label class="drop" id="drop" for="file" style="margin-top:12px">
         <b>Déposez un fichier ici ou touchez pour le choisir</b>
-        <span class="fmts"><span class="pill accent">PDF</span><span class="pill accent">Excel .xlsx .xls</span><span class="pill accent">CSV</span><span class="pill accent">TXT</span></span>
-        <span class="note" id="file-name">Le fichier est lu sur votre appareil ; seules les écritures validées sont enregistrées.</span>
+        <span class="fmts"><span class="pill accent">Excel .xlsx .xls</span><span class="pill accent">PDF</span><span class="pill accent">CSV</span><span class="pill accent">TXT</span><span class="pill accent">Photo de document</span></span>
+        <span class="note" id="file-name">Le fichier est lu sur votre appareil ; seules les écritures que vous validez sont enregistrées.</span>
       </label>
-      <input type="file" id="file" accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt,.tsv,.prn" hidden>
+      <input type="file" id="file" accept=".pdf,.xlsx,.xls,.xlsm,.ods,.csv,.txt,.tsv,.prn,.png,.jpg,.jpeg,.webp" hidden>
     </div>
     <div id="im-body"></div>`;
-    $$("[data-kind]", el).forEach(b => b.onclick = () => { IM.kind = b.dataset.kind; if (IM.rows.length) { autoMap(); } IM.preview = []; IM.groups = null; this.paintKind(el); this.draw(el); });
+    $$("[data-type]", el).forEach(b => b.onclick = () => { IM.type = b.dataset.type; IM.res = null; if (IM.rows.length) autoMap(); this.draw(el); });
+    $("#im-tpl", el).onclick = () => exportXlsx(`modele-import-${IM.type}.xlsx`, [{name: IMP_TYPES[IM.type].label, rows: templateRows(IM.type)}]);
     const inp = $("#file", el), drop = $("#drop", el);
-    inp.onchange = () => inp.files[0] && this.load(el, inp.files[0]);
+    inp.onchange = () => { if (inp.files[0]) this.load(el, inp.files[0]); inp.value = ""; };
     ["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
     ["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
     drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) this.load(el, f); });
-    this.paintKind(el); this.draw(el);
-  },
-  paintKind(el) {
-    $$("[data-kind]", el).forEach(b => b.classList.toggle("on", b.dataset.kind === IM.kind));
-    $("#kind-help", el).textContent = IM.kind === "releve"
-      ? "Chaque opération du relevé devient une écriture : le compte de trésorerie (521 ou 571) d'un côté, une contrepartie proposée de l'autre (frais bancaires, CNSS, impôts, clients…). Ce qui n'est pas reconnu va au compte d'attente 471, à reclasser ensuite."
-      : "Chaque ligne du fichier est une ligne d'écriture (date, compte, libellé, débit, crédit). Les lignes sont regroupées par pièce ; à défaut, elles sont regroupées jusqu'à ce que l'écriture soit équilibrée. Seules les écritures équilibrées sont importées.";
+    this.draw(el);
   },
   async load(el, file) {
     $("#file-name", el).textContent = "Lecture de « " + file.name + " »…";
-    try { await readFile(file); $("#file-name", el).textContent = `${file.name} · ${IM.fileType} · ${IM.rows.length} ligne(s) lue(s)`; }
-    catch (e) { $("#file-name", el).textContent = file.name; IM.rows = []; toast(e.message || "Lecture impossible.", "bad"); }
+    try { await readFile(file); }
+    catch (e) { IM.rows = []; toast(e.message || "Lecture impossible.", "bad"); }
     this.draw(el);
   },
+  update() {},
   draw(el) {
+    $$("[data-type]", el).forEach(b => b.classList.toggle("on", b.dataset.type === IM.type));
+    const T = IMP_TYPES[IM.type];
+    $("#type-help", el).textContent = T.desc;
+    const fn = $("#file-name", el);
+    if (IM.file) fn.textContent = `${IM.file} · ${IM.fileType}${IM.rows.length ? ` · ${IM.rows.length - (IM.header ? 1 : 0)} ligne(s) de données` : ""}`;
     const box = $("#im-body", el);
+    if (IM.done) {
+      const d = IM.done;
+      box.innerHTML = `<div class="card" style="margin-top:14px"><div class="card-h"><h2>Import terminé</h2><a class="btn primary" href="#ecritures">Voir les journaux</a></div>
+        <div class="grid g4"><div class="kpi pos"><span>Écritures importées</span><b>${d.ok}</b><small>${esc(d.file)}</small></div><div class="kpi"><span>Déjà présentes</span><b>${d.dup}</b><small>Ignorées, sans doublon</small></div><div class="kpi ${d.rej ? "neg" : ""}"><span>Lignes rejetées</span><b>${d.rej}</b><small>Motif affiché ci-dessous</small></div><div class="kpi"><span>Hors exercice</span><b>${d.hors}</b><small>${d.hors ? "Visibles en élargissant la période" : "Toutes dans l'exercice"}</small></div></div>
+        ${d.immos ? `<p class="note" style="margin-top:10px">${d.immos} bien(s) ajouté(s) au registre des immobilisations.</p>` : ""}
+        ${d.fail ? `<div class="alert bad" style="margin-top:10px">${d.fail} écriture(s) n'ont pas pu être enregistrées (connexion interrompue). Relancez l'import du même fichier : les écritures déjà enregistrées seront reconnues et ne seront pas dupliquées.</div>` : ""}
+        <div class="btns" style="margin-top:14px"><button class="btn" id="im-again">Importer un autre fichier</button>${d.rej ? `<button class="btn" id="im-rejx">Télécharger les lignes rejetées</button>` : ""}</div></div>`;
+      $("#im-again", box).onclick = () => { Object.assign(IM, {done: null, rows: [], res: null, file: null, scanned: null, images: null, pdfBuf: null}); this.draw(el); };
+      const rx = $("#im-rejx", box); if (rx) rx.onclick = () => exportXlsx(`lignes-rejetees-${d.file}.xlsx`, [{name: "Rejets", rows: [["Ligne du fichier", "Contenu", "Motif"], ...d.rejects.map(x => [x.line, x.text, x.reason])]}]);
+      return;
+    }
+    if (IM.scanned || IM.images) {
+      box.innerHTML = `<div class="card" style="margin-top:14px"><div class="card-h"><div><h2>Document sans texte lisible</h2><p>${IM.images ? "C'est une photo." : "Ce PDF est une image scannée."} Claude peut recopier le tableau à votre place (connexion internet requise), puis vous vérifiez avant d'importer.</p></div>
+        <button class="btn primary" id="im-ocr">Lire le document avec Claude</button></div>${IM.aiNote ? `<p class="note">${esc(IM.aiNote)}</p>` : ""}</div>`;
+      $("#im-ocr", box).onclick = claudeReadDocument;
+      return;
+    }
     if (!IM.rows.length) { box.innerHTML = ""; return; }
-    const fields = FIELDS[IM.kind];
-    const n = IM.map.length;
-    const body = (IM.header ? IM.rows.slice(1) : IM.rows).slice(0, 40);
-    const head = IM.header ? IM.rows[0] : [];
+    const fields = T.fields, n = IM.map.length;
+    const body = (IM.header ? IM.rows.slice(1) : IM.rows).slice(0, 30), head = IM.header ? IM.rows[0] : [];
     const show = v => v instanceof Date ? fmtDate(parseDate(v)) : String(v ?? "");
+    const O = IO();
+    const acc = (k, l) => `<div class="field"><label for="o-${k}">${l}</label><input class="input mono" id="o-${k}" data-o="${k}" list="dl-comptes" value="${esc(O[k])}"></div>`;
+    const opts = {
+      banque: acc("tresor", "Compte de banque") + acc("contre", "Contrepartie par défaut"),
+      caisse: acc("tresor", "Compte de caisse") + acc("contre", "Contrepartie par défaut"),
+      ventes: acc("compte", "Compte de produit par défaut") + acc("tiers", "Compte client par défaut") + acc("tvaAcc", "Compte de TVA facturée"),
+      achats: acc("compte", "Compte de charge par défaut") + acc("tiers", "Compte fournisseur par défaut") + acc("tvaAcc", "Compte de TVA récupérable"),
+      immo: acc("compte", "Compte d'immobilisation par défaut") + acc("tiers", "Compte fournisseur d'investissements") + acc("tvaAcc", "Compte de TVA sur immobilisations"),
+      paie: `<div class="field"><label for="o-date">Date de paie si absente du fichier</label><input class="input" type="date" id="o-date" data-o="date" value="${esc(O.date)}"></div>`,
+      ecritures: ""
+    }[IM.type];
+    const extra = (IM.type === "banque" || IM.type === "caisse") ? `<div class="field"><label for="o-sens">Sens des colonnes Débit et Crédit</label><select class="input" id="o-sens" data-o="sens"><option value="banque">Vu par la banque (débit = sortie)</option><option value="entreprise" ${O.sens === "entreprise" ? "selected" : ""}>Vu par l'entreprise (débit = entrée)</option></select></div>`
+      : ["ventes", "achats", "immo"].includes(IM.type) ? `<div class="field"><label for="o-taux">TVA si non fournie</label><select class="input" id="o-taux" data-o="taux"><option value="19">19 %</option><option value="0" ${+O.taux === 0 ? "selected" : ""}>0 % (exonéré)</option></select></div>` + (IM.type === "immo" ? `<div class="field"><label for="o-duree">Durée par défaut (années)</label><input class="input num" id="o-duree" data-o="duree" value="${esc(O.duree)}"></div>` : "") : "";
     box.innerHTML = `
     <div class="card" style="margin-top:14px">
-      <div class="card-h"><div><h2>2. Associer les colonnes</h2><p>Vérifiez la colonne choisie pour chaque donnée. Les colonnes « Ignorer » ne sont pas reprises.</p></div>
+      <div class="card-h"><div><h2>2. Associer les colonnes</h2><p>Vérifiez la donnée de chaque colonne. Les colonnes « Ignorer » ne sont pas reprises.</p></div>
         <div class="btns">
           ${IM.sheets.length > 1 ? `<select class="input" id="im-sheet" style="width:auto" aria-label="Feuille">${IM.sheets.map(s => `<option ${s === IM.sheet ? "selected" : ""}>${esc(s)}</option>`).join("")}</select>` : ""}
           ${IM.pdfLines ? `<div class="seg"><button data-pm="releve" class="${IM.pdfMode === "releve" ? "on" : ""}">Tableau détecté</button><button data-pm="brut" class="${IM.pdfMode === "brut" ? "on" : ""}">Texte brut</button></div>` : ""}
           <label class="btn sm" style="cursor:pointer"><input type="checkbox" class="chk" id="im-head" ${IM.header ? "checked" : ""}> 1re ligne = en-têtes</label>
+          <button class="btn sm" id="im-ai">Identifier avec Claude</button>
         </div></div>
-      <div class="tbl-wrap" style="max-height:360px;overflow:auto"><table class="t"><thead>
-        <tr>${Array.from({length: n}, (_, i) => `<th><select class="input map-sel" data-col="${i}" aria-label="Colonne ${i + 1}">${Object.entries(fields).map(([k, v]) => `<option value="${k}" ${IM.map[i] === k ? "selected" : ""}>${v}</option>`).join("")}</select></th>`).join("")}</tr>
+      ${IM.aiNote ? `<div class="alert good" style="margin-bottom:10px">${esc(IM.aiNote)}</div>` : ""}
+      <div class="tbl-wrap" style="max-height:340px;overflow:auto"><table class="t"><thead>
+        <tr>${Array.from({length: n}, (_, i) => `<th><select class="input map-sel" data-col="${i}" aria-label="Colonne ${i + 1}"><option value="">Ignorer</option>${Object.entries(fields).map(([k, v]) => `<option value="${k}" ${IM.map[i] === k ? "selected" : ""}>${v}</option>`).join("")}</select></th>`).join("")}</tr>
         ${IM.header ? `<tr>${Array.from({length: n}, (_, i) => `<th style="text-transform:none;letter-spacing:0">${esc(show(head[i]))}</th>`).join("")}</tr>` : ""}
       </thead><tbody>${body.map(r => `<tr>${Array.from({length: n}, (_, i) => `<td>${esc(show(r[i]))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
-      ${IM.rows.length > 41 ? `<p class="note" style="margin-top:6px">Aperçu des 40 premières lignes sur ${IM.rows.length - (IM.header ? 1 : 0)}.</p>` : ""}
-      <div class="form-row" style="margin-top:14px">
-        <div class="field"><label for="o-j">Journal</label><select class="input" id="o-j">${Object.entries(JOURNAUX).map(([k, v]) => `<option value="${k}" ${IM.opts.journal === k ? "selected" : ""}>${k} · ${v}</option>`).join("")}</select></div>
-        ${IM.kind === "releve" ? `
-        <div class="field"><label for="o-t">Compte de trésorerie</label><input class="input mono" id="o-t" list="dl-comptes" value="${esc(IM.opts.tresor)}"></div>
-        <div class="field"><label for="o-c">Contrepartie par défaut</label><input class="input mono" id="o-c" list="dl-comptes" value="${esc(IM.opts.contre)}"></div>
-        <div class="field"><label for="o-s">Sens des colonnes</label><select class="input" id="o-s"><option value="banque" ${IM.opts.sens === "banque" ? "selected" : ""}>Relevé de banque (débit = sortie)</option><option value="entreprise" ${IM.opts.sens === "entreprise" ? "selected" : ""}>Livre de l'entreprise (débit = entrée)</option></select></div>` : ""}
-      </div>
+      ${IM.rows.length > 31 ? `<p class="note" style="margin-top:6px">Aperçu des 30 premières lignes sur ${IM.rows.length - (IM.header ? 1 : 0)} : toutes seront traitées.</p>` : ""}
+      ${opts || extra ? `<div class="form-row" style="margin-top:14px">${opts}${extra}</div>` : ""}
       <div class="btns" style="margin-top:14px"><button class="btn primary" id="im-prev">Préparer les écritures</button></div>
     </div>
     <div id="im-res"></div>`;
-    $$(".map-sel", box).forEach(s => s.onchange = () => { const i = +s.dataset.col; if (s.value) IM.map = IM.map.map((v, k) => k !== i && v === s.value ? "" : v); IM.map[i] = s.value; IM.preview = []; IM.groups = null; this.draw(el); });
-    const hd = $("#im-head", box); if (hd) hd.onchange = () => { IM.header = hd.checked; autoMap(); this.draw(el); };
-    const sh = $("#im-sheet", box); if (sh) sh.onchange = () => { IM.sheet = sh.value; loadSheet(); IM.header = looksLikeHeader(IM.rows[0]); autoMap(); this.draw(el); };
-    $$("[data-pm]", box).forEach(b => b.onclick = () => { IM.pdfMode = b.dataset.pm; applyPdfMode(); IM.header = looksLikeHeader(IM.rows[0]); autoMap(); this.draw(el); });
-    const opt = (id, k) => { const x = $("#" + id, box); if (x) x.onchange = () => { IM.opts[k] = id === "o-j" ? x.value : (id === "o-s" ? x.value : normAcc(x.value)); }; };
-    opt("o-j", "journal"); opt("o-t", "tresor"); opt("o-c", "contre"); opt("o-s", "sens");
+    $$(".map-sel", box).forEach(s => s.onchange = () => { const i = +s.dataset.col; if (s.value) IM.map = IM.map.map((v, k) => k !== i && v === s.value ? "" : v); IM.map[i] = s.value; IM.res = null; this.draw(el); });
+    const hd = $("#im-head", box); if (hd) hd.onchange = () => { IM.header = hd.checked; autoMap(); IM.res = null; this.draw(el); };
+    const sh = $("#im-sheet", box); if (sh) sh.onchange = () => { IM.sheet = sh.value; loadSheet(); afterRows(); IM.res = null; this.draw(el); };
+    $$("[data-pm]", box).forEach(b => b.onclick = () => { IM.pdfMode = b.dataset.pm; applyPdfMode(); afterRows(); IM.res = null; this.draw(el); });
+    $$("[data-o]", box).forEach(x => x.onchange = () => { const k = x.dataset.o; O[k] = ["date", "sens"].includes(k) ? x.value : k === "taux" || k === "duree" ? +x.value || 0 : normAcc(x.value); IM.res = null; const r = $("#im-res", box); if (r) r.innerHTML = ""; });
+    $("#im-ai", box).onclick = claudeMapColumns;
     $("#im-prev", box).onclick = () => {
-      const need = IM.kind === "releve" ? ["date"] : ["date", "compte"];
-      const miss = need.filter(f => !IM.map.includes(f));
-      if (IM.kind === "releve" && !["debit", "credit", "montant"].some(f => IM.map.includes(f))) miss.push("montant");
-      if (IM.kind === "ecritures" && !["debit", "credit"].some(f => IM.map.includes(f))) miss.push("débit/crédit");
+      const miss = T.need.filter(f => !IM.map.includes(f)).map(f => fields[f]);
+      if (T.needOne.length && !T.needOne.some(f => IM.map.includes(f))) miss.push(T.needOne.map(f => fields[f]).join(" ou "));
+      if (IM.type === "paie" && !IM.map.includes("date") && !O.date) miss.push("Date ou mois (colonne, ou date saisie ci-dessous)");
       if (miss.length) return toast("Associez d'abord : " + miss.join(", ") + ".", "bad");
-      if (IM.kind === "releve" && (!accountValid(IM.opts.tresor) || !accountValid(IM.opts.contre))) return toast("Vérifiez le compte de trésorerie et la contrepartie.", "bad");
-      buildPreview(); this.drawResult(el);
+      const bad = ["tresor", "contre", "compte", "tiers", "tvaAcc"].filter(k => O[k] !== undefined && !accountValid(O[k]));
+      if (bad.length) return toast("Compte par défaut inconnu : " + bad.map(k => O[k] || "vide").join(", ") + ".", "bad");
+      buildImport(); this.drawResult(el);
     };
-    if (IM.preview.length || IM.groups) this.drawResult(el);
+    if (IM.res) this.drawResult(el);
   },
   drawResult(el) {
-    const box = $("#im-res", el);
-    if (IM.kind === "releve") {
-      const P = IM.preview;
-      if (!P.length) { box.innerHTML = `<div class="card" style="margin-top:14px"><div class="alert bad">Aucune opération datée avec un montant n'a été reconnue. Vérifiez l'association des colonnes Date et Montant.</div></div>`; return; }
-      const ent = P.filter(p => p.montant > 0).reduce((s, p) => s + p.montant, 0), sor = P.filter(p => p.montant < 0).reduce((s, p) => s - p.montant, 0);
-      box.innerHTML = `<div class="card" style="margin-top:14px">
-        <div class="card-h"><div><h2>3. Vérifier les contreparties</h2><p>${P.length} opération(s) : entrées ${fmt0(ent)} FCFA, sorties ${fmt0(sor)} FCFA. Corrigez un compte si besoin avant d'importer.</p></div>
-          <button class="btn primary" id="im-go">Importer les opérations cochées</button></div>
-        <div class="tbl-wrap" style="max-height:480px;overflow:auto"><table class="t"><thead><tr><th><input type="checkbox" class="chk" id="im-all" checked aria-label="Tout cocher"></th><th>Date</th><th>Libellé</th><th class="num">Entrée</th><th class="num">Sortie</th><th style="width:190px">Contrepartie</th></tr></thead><tbody>
-        ${P.map((p, i) => `<tr><td><input type="checkbox" class="chk" data-keep="${i}" ${p.keep ? "checked" : ""} aria-label="Importer la ligne ${i + 1}"></td><td>${fmtDate(p.date)}</td><td>${esc(p.lib)}</td><td class="num">${p.montant > 0 ? fmt(p.montant) : ""}</td><td class="num">${p.montant < 0 ? fmt(-p.montant) : ""}</td>
-          <td><input class="input mono" list="dl-comptes" data-contre="${i}" value="${esc(p.contre)}" aria-label="Contrepartie ligne ${i + 1}"><div class="acc-lbl">${esc(labelOf(p.contre))}</div></td></tr>`).join("")}
-        </tbody></table></div><p class="note" id="im-prog" style="margin-top:8px"></p></div>`;
-      $$("[data-keep]", box).forEach(c => c.onchange = () => { P[+c.dataset.keep].keep = c.checked; });
-      $("#im-all", box).onchange = e => { P.forEach(p => p.keep = e.target.checked); $$("[data-keep]", box).forEach(c => c.checked = e.target.checked); };
-      $$("[data-contre]", box).forEach(c => c.oninput = () => { const p = P[+c.dataset.contre]; p.contre = normAcc(c.value); const l = labelOf(p.contre); const lb = c.nextElementSibling; lb.textContent = l || "Compte absent du plan"; lb.classList.toggle("bad", !l); });
-      $("#im-go", box).onclick = () => this.commitReleve(el);
-    } else {
-      const G = IM.groups || [];
-      const ok = G.filter(g => g.ok && !g.badAcc.length), bad = G.filter(g => !g.ok || g.badAcc.length);
-      box.innerHTML = `<div class="card" style="margin-top:14px">
-        <div class="card-h"><div><h2>3. Contrôle des écritures</h2><p>${G.length} écriture(s) reconstituée(s) : <b>${ok.length}</b> prête(s), <b>${bad.length}</b> à corriger dans le fichier source.</p></div>
-          <button class="btn primary" id="im-go" ${ok.length ? "" : "disabled"}>Importer ${ok.length} écriture(s)</button></div>
-        ${bad.length ? `<div class="alert bad" style="margin-bottom:10px">Écritures écartées : ${bad.slice(0, 8).map(g => `${esc(g.piece || fmtDate(g.date))} (${g.d !== g.c ? "écart " + fmt0(g.d - g.c) : g.badAcc.length ? "compte inconnu " + esc(g.badAcc.join(", ")) : "date manquante"})`).join(" · ")}${bad.length > 8 ? " …" : ""}</div>` : ""}
-        <div class="tbl-wrap" style="max-height:420px;overflow:auto"><table class="t"><thead><tr><th>Date</th><th>Jnl</th><th>Pièce</th><th>Lignes</th><th class="num">Débit</th><th class="num">Crédit</th><th>État</th></tr></thead><tbody>
-        ${G.slice(0, 200).map(g => `<tr><td>${fmtDate(g.date)}</td><td><span class="jr">${esc(g.journal)}</span></td><td class="acc">${esc(g.piece)}</td><td>${g.lignes.map(l => esc(l.compte)).join(", ")}</td><td class="num">${fmt(g.d)}</td><td class="num">${fmt(g.c)}</td><td>${g.ok && !g.badAcc.length ? '<span class="pill good">Prête</span>' : '<span class="pill bad">Écartée</span>'}</td></tr>`).join("")}
-        </tbody></table></div><p class="note" id="im-prog" style="margin-top:8px"></p></div>`;
-      $("#im-go", box).onclick = () => this.commitEcritures(el, ok);
+    const box = $("#im-res", el), R = IM.res, cash = IM.type === "banque" || IM.type === "caisse";
+    const ready = R.props.filter(p => !p.dup), dups = R.props.length - ready.length;
+    const total = ready.reduce((s, p) => s + (cash ? Math.abs(p.montant) : totalsOf(p.entry).d), 0);
+    const {from, to} = exo(), hors = ready.filter(p => (from && p.entry.date < from) || (to && p.entry.date > to)).length;
+    const accLbl = a => `<span class="acc">${esc(a)}</span>`;
+    box.innerHTML = `<div class="card" style="margin-top:14px">
+      <div class="card-h"><div><h2>3. Contrôle avant import</h2><p>Chaque ligne lue est comptée : écriture prête, doublon ou rejet motivé.</p></div>
+        <button class="btn primary" id="im-go" ${ready.length ? "" : "disabled"}>Importer les écritures cochées</button></div>
+      <div class="grid g4" style="margin-bottom:12px">
+        <div class="kpi"><span>Lignes lues</span><b>${R.read}</b><small>Hors en-têtes et lignes vides</small></div>
+        <div class="kpi pos"><span>Écritures prêtes</span><b>${ready.length}</b><small>${fmt0(total)} FCFA</small></div>
+        <div class="kpi"><span>Déjà importées</span><b>${dups}</b><small>Reconnues, non dupliquées</small></div>
+        <div class="kpi ${R.rejects.length ? "neg" : ""}"><span>Lignes rejetées</span><b>${R.rejects.length}</b><small>${R.rejects.length ? "Motifs ci-dessous" : "Aucune"}</small></div>
+      </div>
+      ${hors ? `<div class="alert" style="margin-bottom:10px">${hors} écriture(s) sont datées hors de l'exercice ${fmtDate(from)} – ${fmtDate(to)}. Elles seront bien importées ; élargissez la période des journaux pour les voir.</div>` : ""}
+      ${R.rejects.length ? `<details style="margin-bottom:12px" ${ready.length ? "" : "open"}><summary style="cursor:pointer;font-weight:600;color:var(--bad)">Voir les ${R.rejects.length} ligne(s) rejetée(s) et leur motif</summary>
+        <div class="tbl-wrap" style="margin-top:8px;max-height:260px;overflow:auto"><table class="t"><thead><tr><th class="num">Ligne</th><th>Contenu</th><th>Motif</th></tr></thead><tbody>
+        ${R.rejects.map(x => `<tr><td class="num">${x.line}</td><td>${esc(x.text)}</td><td style="color:var(--bad)">${esc(x.reason)}</td></tr>`).join("")}</tbody></table></div></details>` : ""}
+      ${R.props.length ? `<div class="tbl-wrap" style="max-height:480px;overflow:auto"><table class="t"><thead><tr><th><input type="checkbox" class="chk" id="im-all" checked aria-label="Tout cocher"></th><th>Date</th><th>Jnl</th><th>Pièce</th><th>Libellé</th>${cash ? `<th class="num">Entrée</th><th class="num">Sortie</th><th style="width:190px">Contrepartie</th>` : `<th>Comptes</th><th class="num">Montant</th>`}<th class="num">Ligne</th></tr></thead><tbody>
+        ${R.props.map((p, i) => `<tr style="${p.dup ? "opacity:.55" : ""}"><td>${p.dup ? '<span class="pill">Doublon</span>' : `<input type="checkbox" class="chk" data-keep="${i}" ${p.keep ? "checked" : ""} aria-label="Importer">`}</td>
+          <td>${fmtDate(p.entry.date)}</td><td><span class="jr">${esc(p.entry.journal)}</span></td><td class="acc">${esc(p.entry.piece)}</td><td>${esc(p.entry.libelle)}</td>
+          ${cash ? `<td class="num">${p.montant > 0 ? fmt(p.montant) : ""}</td><td class="num">${p.montant < 0 ? fmt(-p.montant) : ""}</td><td>${p.dup ? accLbl(p.contre) : `<input class="input mono" list="dl-comptes" data-contre="${i}" value="${esc(p.contre)}" aria-label="Contrepartie"><div class="acc-lbl">${esc(labelOf(p.contre))}</div>`}</td>`
+            : `<td style="font-size:.8rem">${p.entry.lignes.map(l => `${accLbl(l.compte)} ${l.debit ? "D" : "C"} ${fmt(l.debit || l.credit)}`).join("<br>")}</td><td class="num">${fmt(totalsOf(p.entry).d)}</td>`}
+          <td class="num">${p.src.length > 3 ? p.src.slice(0, 3).join(", ") + "…" : p.src.join(", ")}</td></tr>`).join("")}
+        </tbody></table></div>` : `<div class="alert bad">Aucune écriture n'a pu être préparée : consultez les motifs de rejet, corrigez l'association des colonnes ou le fichier, puis recommencez.</div>`}
+      <p class="note" id="im-prog" style="margin-top:8px"></p></div>`;
+    $$("[data-keep]", box).forEach(c => c.onchange = () => { R.props[+c.dataset.keep].keep = c.checked; });
+    const all = $("#im-all", box); if (all) all.onchange = e => { R.props.forEach(p => { if (!p.dup) p.keep = e.target.checked; }); $$("[data-keep]", box).forEach(c => c.checked = e.target.checked); };
+    $$("[data-contre]", box).forEach(c => c.oninput = () => { const p = R.props[+c.dataset.contre]; p.contre = normAcc(c.value); const l = labelOf(p.contre); const lb = c.nextElementSibling; lb.textContent = l || "Compte absent du plan"; lb.classList.toggle("bad", !l); });
+    $("#im-go", box).onclick = () => this.commit(el);
+  },
+  async commit(el) {
+    if (IM.busy) return;
+    const R = IM.res, sel = R.props.filter(p => p.keep && !p.dup);
+    if (!sel.length) return toast("Cochez au moins une écriture.", "bad");
+    const badC = sel.find(p => p.contre !== undefined && !accountValid(p.contre)); if (badC) return toast(`Contrepartie inconnue : ${badC.contre || "vide"} (${badC.lib}).`, "bad");
+    IM.busy = true; const btn = $("#im-go", el); btn.disabled = true; const prog = $("#im-prog", el);
+    const list = sel.map(finalEntry).map(e => ({...e, cree: new Date().toISOString()}));
+    let ok = 0, fail = 0;
+    // Enregistrement par lots : un échec n'arrête pas les autres, et les identifiants stables évitent tout doublon à la relance.
+    for (let i = 0; i < list.length; i += 20) {
+      const chunk = list.slice(i, i + 20);
+      try { await Store.putMany("ecritures", chunk); ok += chunk.length; } catch (e) { fail += chunk.length; }
+      prog.textContent = `Enregistrement : ${ok + fail} / ${list.length}`;
     }
-  },
-  async commitReleve(el) {
-    const P = IM.preview.filter(p => p.keep);
-    if (!P.length) return toast("Cochez au moins une opération.", "bad");
-    const badC = P.find(p => !accountValid(p.contre)); if (badC) return toast(`Contrepartie inconnue : ${badC.contre || "vide"} (${badC.lib}).`, "bad");
-    const base = S.ecritures.filter(e => e.journal === IM.opts.journal).length;
-    const now = new Date().toISOString();
-    const list = P.map((p, k) => {
-      const m = Math.abs(p.montant), entree = p.montant > 0;
-      return {id: uid() + k, date: p.date, journal: IM.opts.journal, piece: `${IM.opts.journal}-${String(base + k + 1).padStart(4, "0")}`, libelle: p.lib,
-        lignes: entree ? [{compte: IM.opts.tresor, libelle: p.lib, debit: m, credit: 0}, {compte: p.contre, libelle: p.lib, debit: 0, credit: m}]
-                       : [{compte: p.contre, libelle: p.lib, debit: m, credit: 0}, {compte: IM.opts.tresor, libelle: p.lib, debit: 0, credit: m}],
-        source: "import:" + IM.file, cree: now};
-    });
-    await this.commit(el, list);
-  },
-  async commitEcritures(el, groups) {
-    const now = new Date().toISOString();
-    const counts = {};
-    const list = groups.map((g, k) => {
-      counts[g.journal] = counts[g.journal] ?? S.ecritures.filter(e => e.journal === g.journal).length;
-      const piece = g.piece || `${g.journal}-${String(++counts[g.journal]).padStart(4, "0")}`;
-      const lib = g.lignes.find(l => l.libelle)?.libelle || "Écriture importée";
-      return {id: uid() + k, date: g.date, journal: g.journal, piece, libelle: lib, lignes: g.lignes.map(l => ({...l, libelle: l.libelle || lib})), source: "import:" + IM.file, cree: now};
-    });
-    await this.commit(el, list);
-  },
-  async commit(el, list) {
-    if (IM.busy) return; IM.busy = true;
-    const btn = $("#im-go", el); btn.disabled = true;
-    const prog = $("#im-prog", el);
-    const ok = await guard(() => Store.saveMany(list, n => { prog.textContent = `Enregistrement : ${n} / ${list.length}`; }));
+    const immos = sel.filter(p => p.immo).map(p => ({id: p.id, ...p.immo, ecriture: p.id}));
+    if (immos.length) await guard(() => Store.putMany("immos", immos));
+    const {from, to} = exo();
     IM.busy = false;
-    if (ok) {
-      toast(`${list.length} écriture(s) importée(s) depuis ${IM.file}.`);
-      Object.assign(IM, {rows: [], preview: [], groups: null, pdfLines: null, file: null});
-      location.hash = "ecritures";
-    } else btn.disabled = false;
+    IM.done = {file: IM.file, ok, fail, dup: R.props.filter(p => p.dup).length, rej: R.rejects.length, rejects: R.rejects, immos: immos.length,
+      hors: list.filter(e => (from && e.date < from) || (to && e.date > to)).length};
+    if (IM.done.hors) { JL.from = ""; JL.to = ""; }
+    toast(fail ? `${ok} écriture(s) importée(s), ${fail} en échec.` : `${ok} écriture(s) importée(s) depuis ${IM.file}.`, fail ? "bad" : "");
+    this.draw(el);
+  }
+};
+
+/* ============ Immobilisations ============ */
+const amortAcc = c => "28" + String(c).slice(1, 3);
+const amortissable = c => /^2[1-5]/.test(c) && !/^22/.test(c);
+function amortAt(im, date) {
+  if (!amortissable(im.compte) || !im.duree || date < (im.service || im.date)) return 0;
+  const days = (Date.parse(date) - Date.parse(im.service || im.date)) / 864e5 + 1;
+  return Math.min(im.valeur, Math.round(im.valeur / im.duree * days / 365));
+}
+const dayBefore = d => { const x = new Date(Date.parse(d) - 864e5); return x.toISOString().slice(0, 10); };
+VIEWS.immos = {
+  title: "Immobilisations",
+  mount(el) {
+    el.innerHTML = `<div class="card"><div class="card-h"><div><h2>Ajouter une immobilisation</h2><p>Amortissement linéaire, prorata temporis à partir de la mise en service. Pour enregistrer aussi la facture, utilisez l'import « Immobilisations » ou la saisie.</p></div></div>
+      <div class="form-row">
+        <div class="field" style="grid-column:span 2"><label for="i-lib">Désignation</label><input class="input" id="i-lib" placeholder="Ex. Véhicule Toyota Hilux"></div>
+        <div class="field"><label for="i-cpt">Compte</label><input class="input mono" id="i-cpt" list="dl-comptes" value="245"><div class="acc-lbl" id="i-cpt-l"></div></div>
+        <div class="field"><label for="i-val">Valeur d'origine HT</label><input class="input num" id="i-val" inputmode="decimal"></div>
+        <div class="field"><label for="i-date">Date d'acquisition</label><input class="input" type="date" id="i-date"></div>
+        <div class="field"><label for="i-serv">Mise en service</label><input class="input" type="date" id="i-serv"></div>
+        <div class="field"><label for="i-dur">Durée (années)</label><input class="input num" id="i-dur" inputmode="numeric" value="5"></div>
+      </div>
+      <div class="btns" style="margin-top:12px;justify-content:flex-end"><button class="btn primary" id="i-add">Ajouter au registre</button></div></div>
+      <div class="card" style="margin-top:14px"><div id="i-list"></div></div>`;
+    const lbl = () => { $("#i-cpt-l").textContent = labelOf($("#i-cpt").value); }; $("#i-cpt").oninput = lbl; lbl();
+    $("#i-add").onclick = async () => {
+      const g = id => $("#" + id).value.trim();
+      const im = {libelle: g("i-lib"), compte: normAcc(g("i-cpt")), valeur: parseAmount(g("i-val")) || 0, date: g("i-date"), service: g("i-serv") || g("i-date"), duree: parseAmount(g("i-dur")) || 0};
+      if (!im.libelle || !im.valeur || !im.date) return toast("Indiquez la désignation, la valeur et la date d'acquisition.", "bad");
+      if (!/^2[1-7]/.test(im.compte) || !accountValid(im.compte)) return toast("Choisissez un compte d'immobilisation de la classe 2 (hors 28 et 29).", "bad");
+      if (await guard(() => Store.putMany("immos", [{id: "im" + Date.now().toString(36), ...im}]), "Immobilisation ajoutée au registre.")) ["i-lib", "i-val", "i-date", "i-serv"].forEach(id => $("#" + id).value = "");
+    };
+  },
+  update(el) {
+    const box = $("#i-list", el); if (!box) return;
+    if (!S.ready || S.dbError) { box.innerHTML = loadingOr(""); return; }
+    const {from, to} = exo();
+    const list = [...S.immos].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    if (!list.length) { box.innerHTML = emptyState("Registre vide", "Ajoutez vos immobilisations ci-dessus ou importez vos factures d'acquisition (type « Immobilisations »)."); return; }
+    const rows = list.map(im => { const a0 = from ? amortAt(im, dayBefore(from)) : 0, a1 = amortAt(im, to); return {im, a0, dot: r2(a1 - a0), vnc: r2(im.valeur - a1)}; });
+    const tot = k => rows.reduce((s, r) => s + (k === "valeur" ? r.im.valeur : r[k]), 0);
+    const dotId = "dot-" + to, posted = S.ecritures.find(e => e.id === dotId);
+    box.innerHTML = `<div class="card-h"><div><h2>Registre et dotations de l'exercice</h2><p>Exercice du ${fmtDate(from)} au ${fmtDate(to)}.</p></div>
+      <div class="btns"><button class="btn sm" id="i-xls">Tableau d'amortissement (Excel)</button><button class="btn sm primary" id="i-dot" ${tot("dot") > 0 ? "" : "disabled"}>${posted ? "Mettre à jour l'écriture de dotation" : "Comptabiliser les dotations"}</button></div></div>
+      ${posted ? `<p class="note" style="margin-bottom:8px">Écriture ${esc(posted.piece)} du ${fmtDate(posted.date)} : ${fmt0(totalsOf(posted).d)} FCFA.</p>` : ""}
+      <div class="tbl-wrap"><table class="t"><thead><tr><th>Désignation</th><th>Compte</th><th>Mise en service</th><th class="num">Valeur d'origine</th><th class="num">Durée</th><th class="num">Amort. antérieurs</th><th class="num">Dotation de l'exercice</th><th class="num">VNC fin d'exercice</th><th></th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td>${esc(r.im.libelle)}</td><td class="acc">${esc(r.im.compte)}</td><td>${fmtDate(r.im.service || r.im.date)}</td><td class="num">${fmt0(r.im.valeur)}</td><td class="num">${amortissable(r.im.compte) ? r.im.duree + " ans" : "Non amortissable"}</td><td class="num">${fmt(r.a0)}</td><td class="num">${fmt(r.dot)}</td><td class="num">${fmt0(r.vnc)}</td><td><button class="btn sm danger" data-rmi="${esc(r.im.id)}">Retirer</button></td></tr>`).join("")}
+      <tr class="tot"><td colspan="3">Totaux</td><td class="num">${fmt0(tot("valeur"))}</td><td></td><td class="num">${fmt0(tot("a0"))}</td><td class="num">${fmt0(tot("dot"))}</td><td class="num">${fmt0(tot("vnc"))}</td><td></td></tr></tbody></table></div>`;
+    $$("[data-rmi]", box).forEach(b => armDelete(b, () => guard(() => Store.delMany("immos", [b.dataset.rmi]), "Immobilisation retirée du registre.")));
+    $("#i-xls", box).onclick = () => exportXlsx(`tableau-amortissement-${to}.xlsx`, [{name: "Amortissements", rows: [["Désignation", "Compte", "Compte d'amortissement", "Mise en service", "Valeur d'origine", "Durée", "Taux %", "Amortissements antérieurs", "Dotation de l'exercice", "Cumul fin d'exercice", "VNC"],
+      ...rows.map(r => [r.im.libelle, r.im.compte, amortissable(r.im.compte) ? amortAcc(r.im.compte) : "", fmtDate(r.im.service || r.im.date), r.im.valeur, r.im.duree, amortissable(r.im.compte) ? r2(100 / r.im.duree) : 0, r.a0, r.dot, r2(r.a0 + r.dot), r.vnc])]}]);
+    $("#i-dot", box).onclick = () => {
+      const by = {}; rows.forEach(r => { if (r.dot > 0) { const a = amortAcc(r.im.compte); by[a] = r2((by[a] || 0) + r.dot); } });
+      const total = r2(Object.values(by).reduce((s, v) => s + v, 0));
+      const lignes = [{compte: "681", libelle: "Dotations aux amortissements de l'exercice", debit: total, credit: 0}, ...Object.entries(by).map(([a, v]) => ({compte: a, libelle: "Amortissements " + (labelOf(a) || a), debit: 0, credit: v}))];
+      guard(() => Store.putMany("ecritures", [{id: dotId, date: to, journal: "OD", piece: "OD-DOT-" + to.slice(0, 4), libelle: "Dotations aux amortissements de l'exercice", lignes, source: "immobilisations", cree: new Date().toISOString()}]), `Dotations comptabilisées : ${fmt0(total)} FCFA.`);
+    };
   }
 };
 
@@ -2004,6 +2329,167 @@ VIEWS.paie = {
     };
   }
 };
+
+/* ============ Assistant Claude ============ */
+function aiError(e) {
+  const c = e && e.code;
+  return c === "not_granted" ? "Vous n'avez pas autorisé cette application à utiliser Claude. Autorisez-la dans le menu Permissions de l'application."
+    : c === "sampling_disabled" || c === "capability_disabled" || c === "not_declared" ? "Claude n'est pas disponible pour ce compte ou dans cette vue."
+    : c === "rate_limited" ? (e.reason === "usage_limit" ? "Votre limite d'utilisation de Claude est atteinte. Réessayez plus tard." : "Trop de demandes à la suite. Patientez un instant puis réessayez.")
+    : c === "session_expired" ? "Votre session a expiré : reconnectez-vous à Claude."
+    : c === "prompt_too_large" ? "Le dossier est trop volumineux pour une seule question : restreignez la période ou la question."
+    : c === "refused" ? "Claude n'a pas pu répondre à cette demande. Reformulez-la."
+    : c === "invalid_json" ? "La réponse de Claude n'a pas pu être exploitée. Réessayez."
+    : c === "image_rejected" ? "Le document n'a pas pu être lu : essayez un fichier plus net ou moins volumineux."
+    : c === "cancelled" ? "Demande arrêtée."
+    : "Connexion à Claude impossible pour le moment. Vérifiez votre connexion internet puis réessayez.";
+}
+function mdLite(src) {
+  // Rendu Markdown minimal et sûr : tout est échappé avant mise en forme.
+  const blocks = [], lines = String(src).replace(/\r/g, "").split("\n");
+  const inl = s => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<i>$2</i>");
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (/^```/.test(l)) { const lang = l.slice(3).trim(); const buf = []; while (++i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i]); blocks.push(lang === "ecritures" ? `<div class="ai-ecr" data-json="${esc(buf.join("\n"))}"></div>` : `<pre class="ai-pre">${esc(buf.join("\n"))}</pre>`); continue; }
+    if (/^\s*\|/.test(l) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
+      const row = s => s.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+      const h = row(l); i++; const rows = [];
+      while (i + 1 < lines.length && /^\s*\|/.test(lines[i + 1])) rows.push(row(lines[++i]));
+      blocks.push(`<div class="tbl-wrap" style="margin:6px 0"><table class="t"><thead><tr>${h.map(c => `<th>${inl(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, j) => `<td${j &&/^-?[\d\s  .,]+%?$/.test(c) ? ' class="num"' : ""}>${inl(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`); continue;
+    }
+    let m;
+    if ((m = l.match(/^(#{1,4})\s+(.*)/))) { blocks.push(`<h${Math.min(4, m[1].length + 1)} class="ai-h">${inl(m[2])}</h${Math.min(4, m[1].length + 1)}>`); continue; }
+    if (/^\s*([-*•]|\d+[.)])\s+/.test(l)) {
+      const ordered = /^\s*\d+[.)]/.test(l), items = [];
+      i--; while (i + 1 < lines.length && /^\s*([-*•]|\d+[.)])\s+/.test(lines[i + 1])) items.push(lines[++i].replace(/^\s*([-*•]|\d+[.)])\s+/, ""));
+      blocks.push(`<${ordered ? "ol" : "ul"} class="ai-list">${items.map(t => `<li>${inl(t)}</li>`).join("")}</${ordered ? "ol" : "ul"}>`); continue;
+    }
+    if (!l.trim()) { blocks.push(""); continue; }
+    blocks.push(`<p>${inl(l)}</p>`);
+  }
+  return blocks.join("");
+}
+function aiDossier() {
+  const s = S.societe, {from, to} = exo(), R = resultat(from, to), cum = balanceOf("", to);
+  const bal = balanceOf(from, to).slice(0, 400).map(r => `${r.compte};${labelOf(r.compte)};${r2(r.d)};${r2(r.c)};${r2(r.d - r.c)}`).join("\n");
+  const pers = [...new Set(S.bulletins.map(b => b.periode))].sort().slice(-3).map(p => { const b = S.bulletins.filter(x => x.periode === p), t = k => b.reduce((a, x) => a + (x[k] || 0), 0); return `${p} : ${b.length} bulletins, brut ${t("brut")}, CNSS salariale ${t("cnssSal")}, ITS ${t("its")}, FSSP ${t("eg")}, net ${t("net")}, charges patronales ${t("patronal")}`; }).join("\n") || "aucune paie validée";
+  const att = S.ecritures.flatMap(e => (e.lignes || []).filter(l => normAcc(l.compte).startsWith("471")).map(l => `${e.date};${e.journal};${e.piece};${(l.libelle || e.libelle).slice(0, 70)};${r2(l.debit)};${r2(l.credit)}`)).slice(0, 120).join("\n");
+  return `DOSSIER
+Société : ${s.raison || "non renseignée"} ; NIF ${s.nif || "?"} ; RCCM ${s.rccm || "?"} ; régime ${s.regime} ; TVA ${s.tva} %.
+Exercice : ${from} au ${to}. Date du jour : ${new Date().toISOString().slice(0, 10)}. Montants en FCFA.
+Écritures : ${S.ecritures.length} ; exemples de démonstration : ${S.ecritures.filter(e => e.exemple).length}. Salariés actifs : ${S.salaries.filter(x => x.actif !== false).length}. Immobilisations au registre : ${S.immos.length}.
+Synthèse de l'exercice : CA ${r2(R.ca)} ; marge commerciale ${r2(R.marge)} ; valeur ajoutée ${r2(R.va)} ; EBE ${r2(R.ebe)} ; résultat d'exploitation ${r2(R.re)} ; résultat financier ${r2(R.rf)} ; HAO ${r2(R.hao)} ; résultat net ${r2(R.net)} ; charges totales ${r2(R.charges)} ; produits totaux ${r2(R.produits)}.
+TVA de l'exercice : facturée ${r2(R.tvaColl)}, récupérable ${r2(R.tvaDed)}, nette ${r2(R.tvaColl - R.tvaDed)}.
+Soldes cumulés à la fin de l'exercice : trésorerie (classe 5) ${r2(sumP(cum, ["5"], ["59"]))} ; clients 411 ${r2(sumP(cum, ["411"]))} ; fournisseurs 401 ${r2(-sumP(cum, ["401"]))} ; compte d'attente 471 ${r2(sumP(cum, ["471"]))}.
+Paies récentes :
+${pers}
+BALANCE DE L'EXERCICE (compte;intitulé;débit;crédit;solde) :
+${bal || "vide"}
+LIGNES DU COMPTE D'ATTENTE 471 (date;journal;pièce;libellé;débit;crédit) :
+${att || "aucune"}`;
+}
+const AI_RULES = `Tu es l'assistant comptable, fiscal et social intégré à SmartCompta Exp, logiciel de comptabilité SYSCOHADA révisé utilisé au Niger par un cabinet de conseil (Smart Consulting). Réponds en français, sur un ton professionnel, de façon structurée (titres courts, listes, tableaux Markdown si utile). Cite les références quand tu les connais avec certitude (Acte uniforme OHADA relatif au droit comptable et SYSCOHADA révisé, Code général des impôts du Niger, Code du travail, Convention collective interprofessionnelle de 2022, textes CNSS, ordonnance FSSP n° 2025-35) et signale ce qui est à vérifier auprès de la DGI ou de la CNSS. Les chiffres du DOSSIER ci-dessous font foi : n'invente aucun montant ; s'il te manque une information, utilise les outils de consultation s'ils sont disponibles, ou dis ce qu'il faut fournir.
+Quand tu proposes des écritures comptables, ajoute à la fin un bloc de code dont la langue est « ecritures », contenant un tableau JSON : [{"date":"AAAA-MM-JJ","journal":"OD","libelle":"...","lignes":[{"compte":"601","libelle":"...","debit":0,"credit":0}]}]. Chaque écriture doit être équilibrée et utiliser des comptes du plan SYSCOHADA. L'utilisateur vérifiera puis enregistrera lui-même ces écritures.`;
+const AI_TOOLS = [
+  {name: "grand_livre", description: "Renvoie les mouvements d'un compte (ou de tous les comptes commençant par ce numéro) avec date, journal, pièce, libellé, débit, crédit. 150 lignes au plus.",
+    inputSchema: {type: "object", properties: {compte: {type: "string"}, du: {type: "string", description: "AAAA-MM-JJ"}, au: {type: "string", description: "AAAA-MM-JJ"}}, required: ["compte"]},
+    execute: i => { const c = normAcc(i.compte); const out = []; S.ecritures.forEach(e => { if ((i.du && e.date < i.du) || (i.au && e.date > i.au)) return; (e.lignes || []).forEach(l => { if (normAcc(l.compte).startsWith(c)) out.push([e.date, e.journal, e.piece, normAcc(l.compte), (l.libelle || e.libelle).slice(0, 80), r2(l.debit), r2(l.credit), l.lettre || ""]); }); }); out.sort((a, b) => a[0].localeCompare(b[0])); return {colonnes: ["date", "journal", "piece", "compte", "libelle", "debit", "credit", "lettre"], lignes: out.slice(0, 150), total_lignes: out.length}; }},
+  {name: "rechercher_ecritures", description: "Recherche des écritures par texte (libellé, pièce, compte, montant), journal et période. Renvoie 60 écritures au plus avec leurs lignes.",
+    inputSchema: {type: "object", properties: {texte: {type: "string"}, journal: {type: "string"}, du: {type: "string"}, au: {type: "string"}}},
+    execute: i => { const q = strip(i.texte || ""); const r = S.ecritures.filter(e => (!i.journal || e.journal === String(i.journal).toUpperCase()) && (!i.du || e.date >= i.du) && (!i.au || e.date <= i.au) && (!q || strip(JSON.stringify([e.libelle, e.piece, e.lignes])).includes(q))).sort((a, b) => a.date.localeCompare(b.date)); return {total: r.length, ecritures: r.slice(0, 60).map(e => ({date: e.date, journal: e.journal, piece: e.piece, libelle: e.libelle, lignes: e.lignes.map(l => [normAcc(l.compte), r2(l.debit), r2(l.credit)])}))}; }},
+  {name: "balance", description: "Balance des comptes mouvementés sur une période : compte, intitulé, total débit, total crédit, solde.",
+    inputSchema: {type: "object", properties: {du: {type: "string"}, au: {type: "string"}}},
+    execute: i => balanceOf(i.du || "", i.au || "").slice(0, 500).map(r => [r.compte, labelOf(r.compte), r2(r.d), r2(r.c), r2(r.d - r.c)])},
+  {name: "paie_du_mois", description: "Bulletins validés d'un mois (AAAA-MM) : par salarié, brut, base CNSS, CNSS salariale, revenu net imposable, ITS, FSSP, avance, net et charges patronales.",
+    inputSchema: {type: "object", properties: {periode: {type: "string"}}, required: ["periode"]},
+    execute: i => S.bulletins.filter(b => b.periode === String(i.periode)).map(b => ({salarie: b.nom, charges: b.charges, brut: b.brut, baseCnss: b.baseCnss, cnss: b.cnssSal, rni: b.rni, its: b.its, fssp: b.eg, avance: b.avance, net: b.net, patronal: b.patronal}))}
+];
+const AI_CHIPS = [
+  ["Analyse financière", "Analyse la situation financière du dossier sur l'exercice : rentabilité, structure des charges, trésorerie, créances et dettes. Termine par 5 recommandations concrètes et chiffrées."],
+  ["TVA du mois", "Prépare la situation de TVA du mois en cours : TVA facturée, TVA récupérable, TVA due ou crédit, les écritures de liquidation à passer et les points à vérifier avant la déclaration à la DGI."],
+  ["Reclasser le 471", "Examine les lignes du compte d'attente 471 et propose pour chacune le compte définitif le plus probable, puis les écritures de reclassement."],
+  ["Contrôle avant clôture", "Liste les contrôles à faire avant la clôture de l'exercice sur ce dossier (rapprochements, lettrage, cut-off, amortissements, provisions, stocks, TVA, CNSS, ITS, FSSP) en t'appuyant sur les soldes. Signale les anomalies visibles."],
+  ["Vérifier la paie", "Vérifie la cohérence de la dernière paie validée (CNSS, ITS, FSSP, charges patronales) et indique les déclarations et paiements à effectuer avec leurs échéances."],
+  ["Procédure comptable", "Rédige une procédure de traitement mensuel des pièces comptables adaptée à ce dossier (collecte, saisie, import des relevés, lettrage, rapprochement, paie, déclarations), avec responsabilités et calendrier."]
+];
+const AI = {turns: [], busy: false, ctl: null, tier: "default"};
+try { const t = JSON.parse(localStorage.getItem("smartcompta-ai") || "null"); if (Array.isArray(t)) AI.turns = t.slice(-20); } catch (e) {}
+const aiSave = () => { try { localStorage.setItem("smartcompta-ai", JSON.stringify(AI.turns.slice(-20))); } catch (e) {} };
+VIEWS.claude = {
+  title: "Assistant Claude",
+  mount(el) {
+    el.innerHTML = `<div class="card ai-card">
+      <div class="card-h"><div><h2>Poser une question à Claude</h2><p>Claude lit la synthèse et la balance de ce dossier pour répondre, analyser, organiser ou proposer des écritures. Connexion internet requise ; chaque question utilise votre compte Claude.</p></div>
+        <div class="btns"><select class="input" id="ai-tier" style="width:auto" aria-label="Niveau de réponse"><option value="quick">Réponse rapide</option><option value="default">Standard</option><option value="complex">Analyse approfondie</option></select><button class="btn sm" id="ai-new">Nouvelle conversation</button></div></div>
+      <div id="ai-avail"></div>
+      <div class="ai-chips">${AI_CHIPS.map(([l], i) => `<button class="btn sm" data-chip="${i}">${l}</button>`).join("")}</div>
+      <div id="ai-log" class="ai-log" aria-live="polite"></div>
+      <div class="ai-input"><textarea class="input" id="ai-q" rows="3" placeholder="Ex. Quelles écritures passer pour un loyer de 300 000 FCFA payé par chèque, avec la retenue FSSP de 3 % ?"></textarea>
+        <div class="btns" style="justify-content:flex-end"><button class="btn" id="ai-stop" hidden>Arrêter</button><button class="btn primary" id="ai-send">Envoyer</button></div></div>
+    </div>`;
+    $("#ai-tier").value = AI.tier; $("#ai-tier").onchange = e => { AI.tier = e.target.value; };
+    $("#ai-new").onclick = () => { if (AI.busy) return; AI.turns = []; aiSave(); this.paint(); };
+    $$("[data-chip]", el).forEach(b => b.onclick = () => this.ask(AI_CHIPS[+b.dataset.chip][1]));
+    $("#ai-send").onclick = () => { const q = $("#ai-q").value.trim(); if (q) { $("#ai-q").value = ""; this.ask(q); } };
+    $("#ai-q").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("#ai-send").click(); });
+    $("#ai-stop").onclick = () => AI.ctl && AI.ctl.abort();
+    claudeUse("sample").then(s => { const a = $("#ai-avail"); if (a && !s) a.innerHTML = `<div class="alert" style="margin-bottom:12px">Claude n'est pas joignable depuis cette vue. Ouvrez SmartCompta Exp dans Claude (application ou claude.ai), avec une connexion internet. Le reste du logiciel fonctionne sans Claude.</div>`; });
+    this.paint();
+  },
+  update() {},
+  paint() {
+    const log = $("#ai-log"); if (!log) return;
+    if (!AI.turns.length) { log.innerHTML = `<div class="empty"><h3>Aucune question pour l'instant</h3><p>Choisissez une suggestion ci-dessus ou écrivez votre question. Claude peut proposer des écritures que vous vérifiez avant de les enregistrer.</p></div>`; return; }
+    log.innerHTML = AI.turns.map((t, i) => t.role === "user" ? `<div class="ai-msg me">${esc(t.content)}</div>` : `<div class="ai-msg bot" data-i="${i}">${mdLite(t.content)}</div>`).join("");
+    $$(".ai-ecr", log).forEach(renderProposals);
+    log.scrollTop = log.scrollHeight;
+  },
+  async ask(q) {
+    if (AI.busy) return;
+    const sample = await claudeUse("sample");
+    if (!sample) return toast("Claude n'est pas disponible ici : ouvrez l'application dans Claude, avec une connexion internet.", "bad");
+    AI.busy = true; AI.turns.push({role: "user", content: q}); this.paint();
+    const log = $("#ai-log"), bubble = document.createElement("div"); bubble.className = "ai-msg bot"; bubble.innerHTML = `<p class="note">Claude réfléchit…</p>`; log.appendChild(bubble); log.scrollTop = log.scrollHeight;
+    $("#ai-send").disabled = true; $("#ai-stop").hidden = false;
+    AI.ctl = new AbortController();
+    const lim = await sample.limits().catch(() => null);
+    const input = [{role: "user", content: AI_RULES + "\n\n" + aiDossier()}, {role: "assistant", content: "Bien reçu. Je m'appuie sur ce dossier pour répondre."}, ...AI.turns.slice(-12)];
+    const opts = {signal: AI.ctl.signal, cache: false, modelTier: AI.tier, onText: ({text}) => { bubble.innerHTML = mdLite(text); log.scrollTop = log.scrollHeight; }};
+    if (lim && lim.tools) { delete opts.cache; opts.tools = AI_TOOLS.map(t => ({...t, execute: (inp) => { bubble.dataset.tool = t.name; return t.execute(inp || {}); }})); }
+    try {
+      const {text, truncated} = await sample(input, opts);
+      AI.turns.push({role: "assistant", content: text + (truncated ? "\n\n*(Réponse interrompue : posez une question plus ciblée pour la suite.)*" : "")});
+    } catch (e) {
+      const keep = e && e.text ? e.text + "\n\n" : "";
+      AI.turns.push({role: "assistant", content: keep + "**" + aiError(e) + "**"});
+    }
+    AI.busy = false; aiSave();
+    if ($("#ai-send")) { $("#ai-send").disabled = false; $("#ai-stop").hidden = true; this.paint(); }
+  }
+};
+function renderProposals(box) {
+  let list;
+  try { list = JSON.parse(box.dataset.json); if (!Array.isArray(list)) list = [list]; } catch (e) { box.innerHTML = `<p class="note">Proposition d'écritures illisible.</p>`; return; }
+  const items = list.map(x => {
+    const lignes = (x.lignes || []).map(l => ({compte: normAcc(l.compte), libelle: String(l.libelle || x.libelle || ""), debit: r2(parseAmount(l.debit) || 0), credit: r2(parseAmount(l.credit) || 0)}));
+    const t = lignes.reduce((a, l) => ({d: a.d + l.debit, c: a.c + l.credit}), {d: 0, c: 0});
+    const bad = lignes.filter(l => !accountValid(l.compte)).map(l => l.compte);
+    const date = parseDate(x.date) || new Date().toISOString().slice(0, 10);
+    return {date, journal: JOURNAUX[String(x.journal).toUpperCase()] ? String(x.journal).toUpperCase() : "OD", libelle: String(x.libelle || "Écriture proposée par Claude"), lignes, ok: r2(t.d - t.c) === 0 && t.d > 0 && !bad.length && lignes.length >= 2, bad, t};
+  });
+  box.innerHTML = `<div class="card" style="margin:8px 0;padding:12px"><div class="card-h" style="margin-bottom:8px"><h3>${items.length} écriture(s) proposée(s)</h3>
+    <button class="btn sm primary" data-saveall ${items.every(x => x.ok) ? "" : "disabled"}>Enregistrer les écritures</button></div>
+    ${items.map((x, i) => `<div style="margin-bottom:10px"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:4px"><b>${fmtDate(x.date)} · <span class="jr">${x.journal}</span> ${esc(x.libelle)}</b>${x.ok ? '<span class="pill good">Équilibrée</span>' : `<span class="pill bad">${x.bad.length ? "Compte inconnu : " + esc(x.bad.join(", ")) : "Déséquilibrée"}</span>`}<button class="btn sm" data-open="${i}">Ouvrir dans la saisie</button></div>
+      <div class="tbl-wrap"><table class="t"><tbody>${x.lignes.map(l => `<tr><td class="acc">${esc(l.compte)}</td><td>${esc(labelOf(l.compte))}</td><td class="num">${fmt(l.debit)}</td><td class="num">${fmt(l.credit)}</td></tr>`).join("")}</tbody></table></div></div>`).join("")}
+    <p class="note">Vérifiez les comptes et les montants : vous restez responsable des écritures enregistrées.</p></div>`;
+  $$("[data-open]", box).forEach(b => b.onclick = () => { const x = items[+b.dataset.open]; Object.assign(F, {editId: null, date: x.date, journal: x.journal, piece: "", libelle: x.libelle, lignes: x.lignes.map(l => ({compte: l.compte, libelle: l.libelle, debit: l.debit ? String(l.debit) : "", credit: l.credit ? String(l.credit) : ""}))}); location.hash = "saisie"; });
+  const sa = $("[data-saveall]", box);
+  armDelete(sa, async () => {
+    const counts = {}, now = new Date().toISOString();
+    const entries = items.map((x, k) => { counts[x.journal] = counts[x.journal] ?? S.ecritures.filter(e => e.journal === x.journal).length; return {id: uid() + k, date: x.date, journal: x.journal, piece: `${x.journal}-${String(++counts[x.journal]).padStart(4, "0")}`, libelle: x.libelle, lignes: x.lignes, source: "claude", cree: now}; });
+    if (await guard(() => Store.putMany("ecritures", entries), `${entries.length} écriture(s) enregistrée(s).`)) { sa.disabled = true; sa.textContent = "Enregistrées"; }
+  });
+}
 
 /* ============ Démarrage ============ */
 fillDatalist();
